@@ -1,0 +1,217 @@
+<meta charset="utf-8">
+<title>Eco Leaf — TRI Facility Explorer</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.4;
+  }
+  h1 { font-size: 1.4rem; }
+  .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  input { padding: 0.4rem 0.6rem; font-size: 1rem; }
+  button { padding: 0.4rem 0.9rem; font-size: 1rem; cursor: pointer; }
+  #facilityList { list-style: none; padding: 0; margin: 0 0 1.5rem; border: 1px solid #8884; border-radius: 6px; overflow: hidden; }
+  #facilityList li {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #8884;
+    cursor: pointer;
+  }
+  #facilityList li:last-child { border-bottom: none; }
+  #facilityList li:hover { background: #8882; }
+  #facilityCard { padding: 1rem; border: 1px solid #8884; border-radius: 6px; margin-bottom: 1rem; }
+  #facilityCard h2 { margin: 0 0 0.25rem; }
+  #facilityCard .meta { opacity: 0.7; font-size: 0.9rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #8883; }
+  th { position: sticky; top: 0; background: canvas; }
+  .status { opacity: 0.7; font-style: italic; }
+  #chart { width: 100%; height: 220px; margin: 1rem 0; }
+  #chart rect { fill: #4a90d9; }
+  #chart text { font-size: 10px; fill: currentColor; }
+</style>
+
+<h1>TRI Facility Explorer (prototype)</h1>
+
+<div class="row">
+  <label>API base:
+    <input id="apiBase" value="http://127.0.0.1:8000" size="24">
+  </label>
+  <label>State abbr:
+    <input id="stateAbbr" value="MD" size="4" maxlength="2">
+  </label>
+  <button id="searchBtn">Search facilities</button>
+</div>
+
+<p id="listStatus" class="status"></p>
+<ul id="facilityList"></ul>
+
+<div id="facilityCard" style="display:none"></div>
+<div class="row" id="chemicalRow" style="display:none">
+  <label>Pollutant:
+    <select id="chemicalSelect"></select>
+  </label>
+</div>
+<svg id="chart" style="display:none"></svg>
+<table id="releaseTable" style="display:none">
+  <thead>
+    <tr><th>Year</th><th>Chemical</th><th>Air (lbs)</th><th>Water (lbs)</th><th>Land (lbs)</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function apiBase() {
+    return $('apiBase').value.replace(/\/$/, '');
+  }
+
+  async function searchFacilities() {
+    const state = $('stateAbbr').value.trim().toUpperCase();
+    if (!state) return;
+    $('listStatus').textContent = 'Loading facilities...';
+    $('facilityList').innerHTML = '';
+    try {
+      const res = await fetch(`${apiBase()}/api/state/${state}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        $('listStatus').textContent = `No facilities found for "${state}".`;
+        return;
+      }
+      $('listStatus').textContent = `${data.length} facilities in ${state} (click one to see releases):`;
+      $('facilityList').innerHTML = data.map(f => `
+        <li data-id="${f.tri_facility_id}">
+          <strong>${f.facility_name}</strong> — ${f.city_name}, ${f.state_abbr}
+        </li>
+      `).join('');
+    } catch (err) {
+      $('listStatus').textContent = `Error loading facilities: ${err}`;
+    }
+  }
+
+  let currentReleases = [];
+
+  async function loadReleases(facilityId) {
+    $('facilityCard').style.display = 'none';
+    $('chemicalRow').style.display = 'none';
+    $('chart').style.display = 'none';
+    $('releaseTable').style.display = 'none';
+    $('listStatus').textContent = `Loading releases for ${facilityId}...`;
+
+    try {
+      const res = await fetch(`${apiBase()}/api/facility/${facilityId}/releases`);
+      const data = await res.json();
+      currentReleases = data.releases;
+      renderFacility(data.facility);
+      renderChemicalSelect(data.releases);
+      renderChart(data.releases, $('chemicalSelect').value);
+      renderTable(data.releases);
+      $('listStatus').textContent = '';
+    } catch (err) {
+      $('listStatus').textContent = `Error loading releases: ${err}`;
+    }
+  }
+
+  // TRI reports ~30 metal/PAH/dioxin "compound" listings at the category level
+  // (EPA doesn't collect which specific compound was released), so their chem_id
+  // is a category code like "N420" rather than a CAS registry number.
+  function formatChemId(chemId) {
+    if (!chemId) return '';
+    const digits = String(chemId).replace(/^0+/, '');
+    if (/^\d{4,}$/.test(digits)) {
+      return `CAS ${digits.slice(0, -3)}-${digits.slice(-3, -1)}-${digits.slice(-1)}`;
+    }
+    return `EPA ID: ${digits || chemId}`;
+  }
+
+  function renderChemicalSelect(releases) {
+    const totalByChemical = {};
+    const chemIdByChemical = {};
+    for (const r of releases) {
+      const total = (r.air_release || 0) + (r.water_release || 0) + (r.land_release || 0);
+      totalByChemical[r.chemical] = (totalByChemical[r.chemical] || 0) + total;
+      if (!chemIdByChemical[r.chemical]) chemIdByChemical[r.chemical] = r.chem_id;
+    }
+    const chemicals = Object.keys(totalByChemical).sort();
+    const defaultChemical = chemicals.reduce(
+      (best, c) => (totalByChemical[c] > totalByChemical[best] ? c : best),
+      chemicals[0]
+    );
+
+    $('chemicalRow').style.display = 'flex';
+    $('chemicalSelect').innerHTML = chemicals.map(c => {
+      const idLabel = formatChemId(chemIdByChemical[c]);
+      const label = idLabel ? `${c} (${idLabel})` : c;
+      return `<option value="${c}" ${c === defaultChemical ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+  }
+
+  function renderFacility(f) {
+    $('facilityCard').style.display = 'block';
+    $('facilityCard').innerHTML = `
+      <h2>${f.name ?? 'Unknown facility'}</h2>
+      <div class="meta">
+        ${f.address ?? ''}, ${f.city ?? ''}, ${f.state ?? ''} ${f.zip ?? ''}<br>
+        County: ${f.county ?? '—'} · Parent company: ${f.parent_company ?? '—'}<br>
+        Lat/Long: ${f.latitude ?? '—'}, ${f.longitude ?? '—'}
+      </div>
+    `;
+  }
+
+  function renderChart(releases, chemical) {
+    const totalsByYear = {};
+    for (const r of releases) {
+      if (r.chemical !== chemical) continue;
+      const total = (r.air_release || 0) + (r.water_release || 0) + (r.land_release || 0);
+      totalsByYear[r.year] = (totalsByYear[r.year] || 0) + total;
+    }
+    const years = Object.keys(totalsByYear).sort();
+    const values = years.map(y => totalsByYear[y]);
+    const max = Math.max(...values, 1);
+
+    const svg = $('chart');
+    svg.style.display = 'block';
+    const width = svg.clientWidth || 860;
+    const height = 220;
+    const barW = width / years.length;
+    const padding = 24;
+
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.innerHTML = years.map((y, i) => {
+      const h = (totalsByYear[y] / max) * (height - padding * 2);
+      const x = i * barW + 2;
+      const yPos = height - padding - h;
+      return `
+        <rect x="${x}" y="${yPos}" width="${barW - 4}" height="${h}">
+          <title>${chemical} — ${y}: ${totalsByYear[y].toLocaleString()} lbs</title>
+        </rect>
+        <text x="${x + (barW - 4) / 2}" y="${height - 8}" text-anchor="middle">${y}</text>
+      `;
+    }).join('');
+  }
+
+  function renderTable(releases) {
+    $('releaseTable').style.display = 'table';
+    $('releaseTable').querySelector('tbody').innerHTML = releases.map(r => `
+      <tr>
+        <td>${r.year}</td>
+        <td>${r.chemical}</td>
+        <td>${r.air_release ?? 0}</td>
+        <td>${r.water_release ?? 0}</td>
+        <td>${r.land_release ?? 0}</td>
+      </tr>
+    `).join('');
+  }
+
+  $('searchBtn').addEventListener('click', searchFacilities);
+  $('facilityList').addEventListener('click', (e) => {
+    const li = e.target.closest('li[data-id]');
+    if (li) loadReleases(li.dataset.id);
+  });
+  $('chemicalSelect').addEventListener('change', (e) => {
+    renderChart(currentReleases, e.target.value);
+  });
+</script>
