@@ -6,4 +6,8 @@ internet over an API. This tool aggregates much of these data points into a usef
 of industrial properties so you don't have to search for these data along. 
 
 
+### TECH STACK 
+Frontend : React + Vite 
+Backend : FastAPI 
+
 
