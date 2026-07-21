@@ -12,6 +12,9 @@ function NavBar() {
           <Link className="nav-link" to="/hazard-watch">
             Hazard Watch
           </Link>
+          <Link className="nav-link" to="/site-search">
+            Site Search
+          </Link>
         </div>
       </div>
     </nav>

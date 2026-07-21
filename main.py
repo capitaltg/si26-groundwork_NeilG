@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
@@ -229,4 +231,115 @@ async def get_facility_compliance(facility_id: str):
     return {
         "industry": dfr_data.get("Industries"),
         "programs": programs,
+    }
+
+
+"""
+Site Search endpoint
+Two modes:
+  - address given: geocodes it via the US Census Bureau's free geocoder, then
+    searches EPA's ECHO system for every regulated facility within `radius`
+    miles of that point.
+  - state given (no address): searches ECHO directly by state, no geocoding
+    needed -- useful for a broad "anywhere in this state" search rather than
+    a specific property.
+Either way, results span every environmental program (TRI, RCRA, CAA, CWA,
+SDWA) -- not just TRI reporters. This is the "what's regulated near this
+property" workflow used in real Phase 1 Environmental Site Assessments
+(ASTM radius search).
+Note: ECHO's facility search results include latitude but not longitude, so
+exact per-facility distance isn't shown -- the radius search itself already
+guarantees every result falls within the requested radius.
+"""
+@app.get("/api/site-search")
+async def site_search(
+    address: Optional[str] = None,
+    state: Optional[str] = None,
+    radius: float = 1.0,
+    limit: int = 100,
+):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        latitude = None
+        longitude = None
+
+        if address:
+            geocode_resp = await client.get(
+                "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+                params={"address": address, "benchmark": "Public_AR_Current", "format": "json"},
+            )
+            matches = geocode_resp.json().get("result", {}).get("addressMatches") or []
+
+            if not matches:
+                return {"latitude": None, "longitude": None, "facilities": []}
+
+            coordinates = matches[0]["coordinates"]
+            latitude = coordinates["y"]
+            longitude = coordinates["x"]
+
+            search_params = {
+                "output": "JSON",
+                "p_lat": latitude,
+                "p_long": longitude,
+                "p_radius": radius,
+            }
+        elif state:
+            search_params = {"output": "JSON", "p_st": state}
+        else:
+            return {"latitude": None, "longitude": None, "facilities": []}
+
+        search_resp = await client.get(
+            "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
+            params=search_params,
+        )
+        query_id = search_resp.json().get("Results", {}).get("QueryID")
+
+        if not query_id:
+            return {"latitude": latitude, "longitude": longitude, "facilities": []}
+
+        results_resp = await client.get(
+            "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
+            params={"output": "JSON", "qid": query_id, "pagelength": 100},
+        )
+        rows = results_resp.json().get("Results", {}).get("Facilities") or []
+
+    facilities = []
+    for row in rows:
+        programs = []
+        if row.get("TRIFlag") == "Y":
+            programs.append("TRI")
+        if row.get("AIRFlag") == "Y":
+            programs.append("CAA")
+        if row.get("CWAComplianceStatus") is not None:
+            programs.append("CWA")
+        if row.get("RCRAComplianceStatus") is not None:
+            programs.append("RCRA")
+        if row.get("SDWAComplianceStatus") is not None:
+            programs.append("SDWA")
+
+        facilities.append(
+            {
+                "registry_id": row.get("RegistryID"),
+                "name": row.get("FacName"),
+                "city": row.get("FacCity"),
+                "state": row.get("FacState"),
+                "programs": programs,
+                "compliance_status": row.get("FacComplianceStatus"),
+                # FacSNCFlg = EPA's own "Significant Noncompliance" designation --
+                # the worst violation tier, distinct from a minor/technical one.
+                "significant_violation": row.get("FacSNCFlg") == "Y",
+            }
+        )
+
+    # ECHO's own pagelength param doesn't actually cap result size (confirmed:
+    # it still returns thousands of rows regardless of the value sent), so the
+    # cap has to be enforced here. Significant violations are sorted first so
+    # the worst compliance issues surface at the top instead of getting
+    # buried in an arbitrarily-ordered list.
+    facilities.sort(key=lambda f: f["significant_violation"], reverse=True)
+    facilities = facilities[:limit]
+
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "facilities": facilities,
     }

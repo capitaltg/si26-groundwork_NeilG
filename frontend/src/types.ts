@@ -51,3 +51,19 @@ export interface FacilityCompliance {
   industry: string | null;
   programs: ComplianceProgram[];
 }
+
+export interface SiteSearchFacility {
+  registry_id: string;
+  name: string;
+  city: string;
+  state: string;
+  programs: string[];
+  compliance_status: string | null;
+  significant_violation: boolean;
+}
+
+export interface SiteSearchResult {
+  latitude: number | null;
+  longitude: number | null;
+  facilities: SiteSearchFacility[];
+}
