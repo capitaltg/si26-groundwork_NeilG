@@ -1,0 +1,40 @@
+export interface Facility {
+  name: string;
+  address: string;
+  city: string;
+  county: string;
+  state: string;
+  zip: string;
+  parent_company: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface FacilitySearchResult {
+  tri_facility_id: string;
+  facility_name: string;
+  city_name: string;
+  state_abbr: string;
+}
+
+export interface Release {
+  chemical: string;
+  chem_id: string;
+  year: number;
+  air_release: number;
+  water_release: number;
+  land_release: number;
+  recycled: number;
+  treated: number;
+  transferred_offsite: number;
+  is_hazardous: boolean;
+}
+
+export interface HazardWatchRow {
+  facility_id: string;
+  facility_name: string;
+  chemical: string;
+  chem_id: string;
+  year: number;
+  total_release: number;
+}
