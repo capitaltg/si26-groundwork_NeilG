@@ -38,3 +38,16 @@ export interface HazardWatchRow {
   year: number;
   total_release: number;
 }
+
+export interface ComplianceProgram {
+  statute: string;
+  status: string | null;
+  inspection_count: string | null;
+  formal_actions_count: string | null;
+  total_penalties: string | null;
+}
+
+export interface FacilityCompliance {
+  industry: string | null;
+  programs: ComplianceProgram[];
+}

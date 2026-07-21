@@ -169,3 +169,64 @@ async def get_hazard_watch(state_abbr: str):
     flagged.sort(key=lambda row: row["total_release"], reverse=True)
 
     return flagged
+
+
+"""
+Compliance endpoint
+Cross-references EPA's ECHO system (Enforcement and Compliance History Online)
+for a facility's regulatory standing across environmental programs (Clean Air
+Act, Clean Water Act, RCRA, etc.) -- a different picture than TRI's
+self-reported release data, which says nothing about violations or
+enforcement history.
+Looks up the facility's EPA registry ID from tri_facility, then queries
+ECHO's Detailed Facility Report (DFR) service for that ID. Only a small,
+clean slice of DFR's large response is used: industry classification plus
+a per-program compliance summary (status, inspections, formal actions,
+penalties) -- not the quarterly compliance tables, demographics, or map data
+DFR also returns.
+"""
+@app.get("/api/facility/{facility_id}/compliance")
+async def get_facility_compliance(facility_id: str):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        facility_url = (
+            f"https://data.epa.gov/dmapservice/tri.tri_facility"
+            f"/tri_facility_id/equals/{facility_id}/1:1/json"
+        )
+        facility_resp = await client.get(facility_url)
+        facility_data = facility_resp.json()
+
+        registry_id = facility_data[0].get("epa_registry_id") if facility_data else None
+        if not registry_id:
+            return {"industry": None, "programs": []}
+
+        dfr_url = (
+            f"https://echodata.epa.gov/echo/dfr_rest_services.get_dfr"
+            f"?output=JSON&p_id={registry_id}"
+        )
+        dfr_resp = await client.get(dfr_url)
+        dfr_data = dfr_resp.json().get("Results", {})
+
+    enforcement_by_statute = {
+        summary["Statute"]: summary
+        for summary in dfr_data.get("EnforcementComplianceSummaries", {}).get("Summaries") or []
+    }
+    inspection_by_statute = {
+        source["Statute"]: source
+        for source in dfr_data.get("InspectionEnforcementSummary", {}).get("Source") or []
+    }
+
+    programs = [
+        {
+            "statute": statute,
+            "status": enforcement_by_statute.get(statute, {}).get("CurrentStatus"),
+            "inspection_count": inspection_by_statute.get(statute, {}).get("InspectionCount"),
+            "formal_actions_count": inspection_by_statute.get(statute, {}).get("FormalEnfActCount"),
+            "total_penalties": inspection_by_statute.get(statute, {}).get("TotalPenalties"),
+        }
+        for statute in set(enforcement_by_statute) | set(inspection_by_statute)
+    ]
+
+    return {
+        "industry": dfr_data.get("Industries"),
+        "programs": programs,
+    }

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import FacilityCard from "../components/FacilityCard";
 import ReleaseTable from "../components/ReleaseTable";
 import ReleaseChart from "../components/ReleaseChart";
+import ComplianceSummary from "../components/ComplianceSummary";
 import { useFacilityReleases } from "../hooks/useFacilityReleases";
 
 function FacilityDetailPage() {
@@ -43,6 +44,7 @@ function FacilityDetailPage() {
   return (
     <div>
       <FacilityCard facility={facility} />
+      <ComplianceSummary facilityId={id ?? ""} />
       {selectedChemical && (
         <>
           <div className="mb-2">
