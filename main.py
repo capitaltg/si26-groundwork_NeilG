@@ -302,6 +302,30 @@ async def site_search(
     radius: float = 1.0,
     limit: int = 100,
 ):
+    facilities_by_id = {}
+
+    def add_facility(registry_id, name, city, state_abbr, program, compliance_status, is_concern):
+        if not registry_id:
+            return
+        entry = facilities_by_id.setdefault(
+            registry_id,
+            {
+                "registry_id": registry_id,
+                "name": name,
+                "city": city,
+                "state": state_abbr,
+                "programs": [],
+                "compliance_status": compliance_status,
+                "significant_violation": False,
+            },
+        )
+        if program not in entry["programs"]:
+            entry["programs"].append(program)
+        if is_concern:
+            entry["significant_violation"] = True
+        if compliance_status and not entry["compliance_status"]:
+            entry["compliance_status"] = compliance_status
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         latitude = None
         longitude = None
@@ -320,34 +344,64 @@ async def site_search(
             latitude = coordinates["y"]
             longitude = coordinates["x"]
 
-            search_params = {
+            echo_params = {
                 "output": "JSON",
                 "p_lat": latitude,
                 "p_long": longitude,
                 "p_radius": radius,
             }
+            # FRS API caps search_radius at 25 miles.
+            superfund_params = {
+                "latitude83": latitude,
+                "longitude83": longitude,
+                "search_radius": min(radius, 25),
+                "pgm_sys_acrnm": "SEMS",
+                "output": "JSON",
+            }
+            brownfields_params = {
+                "geometry": f"{longitude},{latitude}",
+                "geometryType": "esriGeometryPoint",
+                "inSR": 4326,
+                "distance": radius,
+                "units": "esriSRUnit_StatuteMile",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "*",
+                "f": "json",
+            }
         elif state:
-            search_params = {"output": "JSON", "p_st": state}
+            echo_params = {"output": "JSON", "p_st": state}
+            superfund_params = {"state_abbr": state, "pgm_sys_acrnm": "SEMS", "output": "JSON"}
+            brownfields_params = {"where": f"STATE_CODE='{state}'", "outFields": "*", "f": "json"}
         else:
             return {"latitude": None, "longitude": None, "facilities": []}
 
         search_resp = await client.get(
             "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
-            params=search_params,
+            params=echo_params,
         )
         query_id = search_resp.json().get("Results", {}).get("QueryID")
 
-        if not query_id:
-            return {"latitude": latitude, "longitude": longitude, "facilities": []}
+        echo_rows = []
+        if query_id:
+            results_resp = await client.get(
+                "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
+                params={"output": "JSON", "qid": query_id, "pagelength": 100},
+            )
+            echo_rows = results_resp.json().get("Results", {}).get("Facilities") or []
 
-        results_resp = await client.get(
-            "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
-            params={"output": "JSON", "qid": query_id, "pagelength": 100},
+        superfund_resp = await client.get(
+            "https://ofmpub.epa.gov/frs_public2/frs_rest_services.get_facilities",
+            params=superfund_params,
         )
-        rows = results_resp.json().get("Results", {}).get("Facilities") or []
+        superfund_rows = superfund_resp.json().get("Results", {}).get("FRSFacility") or []
 
-    facilities = []
-    for row in rows:
+        brownfields_resp = await client.get(
+            "https://geodata.epa.gov/arcgis/rest/services/OEI/FRS_INTERESTS/MapServer/0/query",
+            params=brownfields_params,
+        )
+        brownfields_rows = brownfields_resp.json().get("features") or []
+
+    for row in echo_rows:
         programs = []
         if row.get("TRIFlag") == "Y":
             programs.append("TRI")
@@ -360,19 +414,48 @@ async def site_search(
         if row.get("SDWAComplianceStatus") is not None:
             programs.append("SDWA")
 
-        facilities.append(
-            {
-                "registry_id": row.get("RegistryID"),
-                "name": row.get("FacName"),
-                "city": row.get("FacCity"),
-                "state": row.get("FacState"),
-                "programs": programs,
-                "compliance_status": row.get("FacComplianceStatus"),
-                # FacSNCFlg = EPA's own "Significant Noncompliance" designation --
-                # the worst violation tier, distinct from a minor/technical one.
-                "significant_violation": row.get("FacSNCFlg") == "Y",
-            }
+        registry_id = row.get("RegistryID")
+        if not registry_id:
+            continue
+        facilities_by_id[registry_id] = {
+            "registry_id": registry_id,
+            "name": row.get("FacName"),
+            "city": row.get("FacCity"),
+            "state": row.get("FacState"),
+            "programs": programs,
+            "compliance_status": row.get("FacComplianceStatus"),
+            # FacSNCFlg = EPA's own "Significant Noncompliance" designation --
+            # the worst violation tier, distinct from a minor/technical one.
+            "significant_violation": row.get("FacSNCFlg") == "Y",
+        }
+
+    for row in superfund_rows:
+        # Being an EPA Superfund site is itself a serious environmental
+        # concern -- not a "compliance status" in the same sense as ECHO's
+        # programs, but treated as significant so it surfaces near the top.
+        add_facility(
+            registry_id=row.get("RegistryId"),
+            name=row.get("FacilityName"),
+            city=row.get("CityName"),
+            state_abbr=row.get("StateAbbr"),
+            program="SUPERFUND",
+            compliance_status="EPA Superfund Site",
+            is_concern=True,
         )
+
+    for row in brownfields_rows:
+        attrs = row.get("attributes", {})
+        add_facility(
+            registry_id=attrs.get("REGISTRY_ID"),
+            name=attrs.get("PRIMARY_NAME"),
+            city=attrs.get("CITY_NAME"),
+            state_abbr=attrs.get("STATE_CODE"),
+            program="BROWNFIELD",
+            compliance_status="Brownfields Property",
+            is_concern=False,
+        )
+
+    facilities = list(facilities_by_id.values())
 
     # ECHO's own pagelength param doesn't actually cap result size (confirmed:
     # it still returns thousands of rows regardless of the value sent), so the

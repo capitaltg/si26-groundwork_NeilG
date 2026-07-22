@@ -8,6 +8,8 @@ const PROGRAM_LABELS: Record<string, string> = {
   CAA: "Air Quality",
   CWA: "Water Discharge",
   SDWA: "Drinking Water",
+  SUPERFUND: "Superfund Site",
+  BROWNFIELD: "Brownfields Property",
 };
 
 const PROGRAM_TOOLTIPS: Record<string, string> = {
@@ -16,6 +18,8 @@ const PROGRAM_TOOLTIPS: Record<string, string> = {
   CAA: "Clean Air Act — air emissions permitting and compliance",
   CWA: "Clean Water Act — water discharge permitting and compliance",
   SDWA: "Safe Drinking Water Act — public drinking water systems",
+  SUPERFUND: "EPA Superfund program — a known, serious hazardous waste contamination site",
+  BROWNFIELD: "Brownfields program — a property being assessed or redeveloped after past contamination",
 };
 
 function ComplianceBadge({
