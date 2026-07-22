@@ -186,6 +186,11 @@ clean slice of DFR's large response is used: industry classification plus
 a per-program compliance summary (status, inspections, formal actions,
 penalties) -- not the quarterly compliance tables, demographics, or map data
 DFR also returns.
+Also separately queries RCRA's own dedicated hazardous-waste search
+(matched by facility name + state, since RCRA's search doesn't support a
+direct registry-ID filter) for generator status -- Small/Large Quantity
+Generator or TSDF -- a field DFR's cross-program summary doesn't reliably
+carry, confirmed by comparing the two directly against a known SQG facility.
 """
 @app.get("/api/facility/{facility_id}/compliance")
 async def get_facility_compliance(facility_id: str):
@@ -197,16 +202,43 @@ async def get_facility_compliance(facility_id: str):
         facility_resp = await client.get(facility_url)
         facility_data = facility_resp.json()
 
-        registry_id = facility_data[0].get("epa_registry_id") if facility_data else None
-        if not registry_id:
-            return {"industry": None, "programs": []}
+        if not facility_data:
+            return {"industry": None, "programs": [], "rcra_generator_status": None}
 
-        dfr_url = (
-            f"https://echodata.epa.gov/echo/dfr_rest_services.get_dfr"
-            f"?output=JSON&p_id={registry_id}"
-        )
-        dfr_resp = await client.get(dfr_url)
-        dfr_data = dfr_resp.json().get("Results", {})
+        facility_name = facility_data[0].get("facility_name")
+        facility_state = facility_data[0].get("state_abbr")
+        registry_id = facility_data[0].get("epa_registry_id")
+
+        dfr_data = {}
+        if registry_id:
+            dfr_url = (
+                f"https://echodata.epa.gov/echo/dfr_rest_services.get_dfr"
+                f"?output=JSON&p_id={registry_id}"
+            )
+            dfr_resp = await client.get(dfr_url)
+            dfr_data = dfr_resp.json().get("Results", {})
+
+        rcra_generator_status = None
+        if facility_name and facility_state:
+            rcra_search_resp = await client.get(
+                "https://echodata.epa.gov/echo/rcra_rest_services.get_facilities",
+                params={"output": "JSON", "p_fn": facility_name, "p_st": facility_state},
+            )
+            rcra_query_id = rcra_search_resp.json().get("Results", {}).get("QueryID")
+
+            if rcra_query_id:
+                rcra_results_resp = await client.get(
+                    "https://echodata.epa.gov/echo/rcra_rest_services.get_qid",
+                    params={"output": "JSON", "qid": rcra_query_id, "pagelength": 5},
+                )
+                rcra_rows = rcra_results_resp.json().get("Results", {}).get("Facilities") or []
+                if rcra_rows:
+                    match = rcra_rows[0]
+                    rcra_generator_status = {
+                        "generator_status": match.get("RCRAUniverse"),
+                        "active_status": match.get("RCRAStatus"),
+                        "compliance_status": match.get("RCRAComplStatus"),
+                    }
 
     enforcement_by_statute = {
         summary["Statute"]: summary
@@ -227,10 +259,22 @@ async def get_facility_compliance(facility_id: str):
         }
         for statute in set(enforcement_by_statute) | set(inspection_by_statute)
     ]
+    # Drop rows where every field is empty -- a statute name with zero actual
+    # data behind it (e.g. EPCRA showing up with no status/counts at all) is
+    # noise, not a real "no violations" signal.
+    programs = [
+        program
+        for program in programs
+        if any(
+            program[field] is not None
+            for field in ("status", "inspection_count", "formal_actions_count", "total_penalties")
+        )
+    ]
 
     return {
         "industry": dfr_data.get("Industries"),
         "programs": programs,
+        "rcra_generator_status": rcra_generator_status,
     }
 
 

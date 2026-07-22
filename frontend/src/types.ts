@@ -47,9 +47,16 @@ export interface ComplianceProgram {
   total_penalties: string | null;
 }
 
+export interface RCRAGeneratorStatus {
+  generator_status: string | null;
+  active_status: string | null;
+  compliance_status: string | null;
+}
+
 export interface FacilityCompliance {
   industry: string | null;
   programs: ComplianceProgram[];
+  rcra_generator_status: RCRAGeneratorStatus | null;
 }
 
 export interface SiteSearchFacility {
