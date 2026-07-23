@@ -1,8 +1,16 @@
+import json
 from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
+
+
+def _parse_json(resp: httpx.Response):
+    # Some EPA/Census endpoints emit raw control characters (e.g. embedded
+    # newlines) inside string fields, which the strict JSON parser httpx's
+    # Response.json() uses rejects. strict=False tolerates them.
+    return json.loads(resp.text, strict=False)
 
 # EPA-designated PBT (Persistent Bioaccumulative Toxic) chemicals, by tri_chem_id.
 # Pulled from EPA's own tri.tri_chem_info reference table (pbt_ind = 1) —
@@ -54,7 +62,7 @@ the EPA's TRI Facility API.
 @app.get("/api/facility/{name}")
 async def get_facility(name: str):
     url = f"https://data.epa.gov/dmapservice/tri.tri_facility/facility_name/contains/{name}/1:10/json"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         r = await client.get(url)
         return r.json()
 
@@ -66,7 +74,7 @@ gives back MD facilities with the built query url
 @app.get("/api/state/{state_abbr}")
 async def get_facilities_by_state(state_abbr: str):
     url = f"https://data.epa.gov/dmapservice/tri.tri_facility/state_abbr/equals/{state_abbr}/1:20/json"
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         r = await client.get(url)
         return r.json()
 
@@ -88,7 +96,7 @@ async def get_facility_releases(facility_id: str):
         f"/sort/tri.tri_reporting_form.reporting_year:desc"
         f"/1:50/json"
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         r = await client.get(url)
         data = r.json()
 
@@ -147,7 +155,7 @@ async def get_hazard_watch(state_abbr: str):
         f"/sort/tri.tri_reporting_form.reporting_year:desc"
         f"/1:1000/json"
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         r = await client.get(url)
         data = r.json()
 
@@ -194,7 +202,7 @@ carry, confirmed by comparing the two directly against a known SQG facility.
 """
 @app.get("/api/facility/{facility_id}/compliance")
 async def get_facility_compliance(facility_id: str):
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         facility_url = (
             f"https://data.epa.gov/dmapservice/tri.tri_facility"
             f"/tri_facility_id/equals/{facility_id}/1:1/json"
@@ -326,7 +334,7 @@ async def site_search(
         if compliance_status and not entry["compliance_status"]:
             entry["compliance_status"] = compliance_status
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         latitude = None
         longitude = None
 
@@ -335,7 +343,7 @@ async def site_search(
                 "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
                 params={"address": address, "benchmark": "Public_AR_Current", "format": "json"},
             )
-            matches = geocode_resp.json().get("result", {}).get("addressMatches") or []
+            matches = _parse_json(geocode_resp).get("result", {}).get("addressMatches") or []
 
             if not matches:
                 return {"latitude": None, "longitude": None, "facilities": []}
@@ -379,7 +387,7 @@ async def site_search(
             "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
             params=echo_params,
         )
-        query_id = search_resp.json().get("Results", {}).get("QueryID")
+        query_id = _parse_json(search_resp).get("Results", {}).get("QueryID")
 
         echo_rows = []
         if query_id:
@@ -387,19 +395,28 @@ async def site_search(
                 "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
                 params={"output": "JSON", "qid": query_id, "pagelength": 100},
             )
-            echo_rows = results_resp.json().get("Results", {}).get("Facilities") or []
+            echo_rows = _parse_json(results_resp).get("Results", {}).get("Facilities") or []
 
         superfund_resp = await client.get(
             "https://ofmpub.epa.gov/frs_public2/frs_rest_services.get_facilities",
             params=superfund_params,
         )
-        superfund_rows = superfund_resp.json().get("Results", {}).get("FRSFacility") or []
+        try:
+            superfund_results = _parse_json(superfund_resp).get("Results", {})
+        except json.JSONDecodeError:
+            # FRS returns malformed JSON for some error responses (e.g. a
+            # trailing comma) -- treat an unparseable response as "no data"
+            # rather than failing the whole combined search.
+            superfund_results = {}
+        superfund_rows = superfund_results.get("FRSFacility") or []
+        if superfund_results.get("Error"):
+            superfund_rows = []
 
         brownfields_resp = await client.get(
             "https://geodata.epa.gov/arcgis/rest/services/OEI/FRS_INTERESTS/MapServer/0/query",
             params=brownfields_params,
         )
-        brownfields_rows = brownfields_resp.json().get("features") or []
+        brownfields_rows = _parse_json(brownfields_resp).get("features") or []
 
     for row in echo_rows:
         programs = []
