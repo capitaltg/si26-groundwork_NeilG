@@ -10,6 +10,8 @@ interface SiteSearchParams {
 
 export function useSiteSearch() {
   const [facilities, setFacilities] = useState<SiteSearchFacility[]>([]);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
@@ -26,10 +28,14 @@ export function useSiteSearch() {
         if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
         return res.json();
       })
-      .then((data) => setFacilities(data.facilities))
+      .then((data) => {
+        setFacilities(data.facilities);
+        setLatitude(data.latitude);
+        setLongitude(data.longitude);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }
 
-  return { facilities, loading, error, searched, search };
+  return { facilities, latitude, longitude, loading, error, searched, search };
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useSiteSearch } from "../hooks/useSiteSearch";
 import { PROGRAM_LABELS, PROGRAM_TOOLTIPS } from "../constants/programLabels";
+import SiteSearchMap from "../components/SiteSearchMap";
 
 function ComplianceBadge({
   status,
@@ -24,7 +25,7 @@ function SiteSearchPage() {
   const [state, setState] = useState("");
   const [radius, setRadius] = useState(1);
   const [limit, setLimit] = useState(100);
-  const { facilities, loading, error, searched, search } = useSiteSearch();
+  const { facilities, latitude, longitude, loading, error, searched, search } = useSiteSearch();
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -92,6 +93,14 @@ function SiteSearchPage() {
       {error && <p className="text-danger">Error: {error}</p>}
       {!loading && !error && searched && facilities.length === 0 && (
         <p>No regulated facilities found for that search.</p>
+      )}
+      {!loading && !error && facilities.length > 0 && (
+        <SiteSearchMap
+          latitude={latitude}
+          longitude={longitude}
+          radius={radius}
+          facilities={facilities}
+        />
       )}
       {!loading && !error && facilities.length > 0 && (
         <table className="table">
