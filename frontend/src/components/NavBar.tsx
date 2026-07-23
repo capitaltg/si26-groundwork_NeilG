@@ -15,6 +15,9 @@ function NavBar() {
           <Link className="nav-link" to="/site-search">
             Site Search
           </Link>
+          <Link className="nav-link" to="/emissions-center">
+            Emissions Center
+          </Link>
         </div>
       </div>
     </nav>

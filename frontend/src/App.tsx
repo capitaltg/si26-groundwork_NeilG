@@ -4,6 +4,7 @@ import SearchPage from "./pages/SearchPage";
 import FacilityDetailPage from "./pages/FacilityDetailPage";
 import HazardWatchPage from "./pages/HazardWatchPage";
 import SiteSearchPage from "./pages/SiteSearchPage";
+import EmissionsCenterPage from "./pages/EmissionsCenterPage";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/facility/:id" element={<FacilityDetailPage />} />
           <Route path="/hazard-watch" element={<HazardWatchPage />} />
           <Route path="/site-search" element={<SiteSearchPage />} />
+          <Route path="/emissions-center" element={<EmissionsCenterPage />} />
         </Routes>
       </div>
     </>
