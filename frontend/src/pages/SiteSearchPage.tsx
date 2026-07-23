@@ -104,7 +104,7 @@ function SiteSearchPage() {
             <h1>Environmental Site Search Report</h1>
             <p>
               {lastSearch.address
-                ? `Address: ${lastSearch.address}, Radius: ${lastSearch.radius} miles`
+                ? `Address: ${lastSearch.address}, Radius: ${lastSearch.radius} mile${lastSearch.radius === 1 ? "" : "s"}`
                 : `State-wide search: ${lastSearch.state}`}
             </p>
             <p>Date generated: {new Date().toLocaleDateString()}</p>
@@ -133,7 +133,7 @@ function SiteSearchPage() {
           <SiteSearchMap
             latitude={latitude}
             longitude={longitude}
-            radius={radius}
+            radius={lastSearch.radius}
             facilities={facilities}
           />
 
