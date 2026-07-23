@@ -8,6 +8,12 @@ interface SiteSearchParams {
   limit: number;
 }
 
+export interface SubmittedSearch {
+  address: string;
+  state: string;
+  radius: number;
+}
+
 export function useSiteSearch() {
   const [facilities, setFacilities] = useState<SiteSearchFacility[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -15,11 +21,13 @@ export function useSiteSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [lastSearch, setLastSearch] = useState<SubmittedSearch | null>(null);
 
   function search({ address, state, radius, limit }: SiteSearchParams) {
     setLoading(true);
     setError(null);
     setSearched(true);
+    setLastSearch({ address: address ?? "", state: state ?? "", radius });
     const params = new URLSearchParams({ radius: String(radius), limit: String(limit) });
     if (address) params.set("address", address);
     if (state) params.set("state", state);
@@ -37,5 +45,5 @@ export function useSiteSearch() {
       .finally(() => setLoading(false));
   }
 
-  return { facilities, latitude, longitude, loading, error, searched, search };
+  return { facilities, latitude, longitude, loading, error, searched, lastSearch, search };
 }
