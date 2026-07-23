@@ -1,0 +1,21 @@
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print,
+  .navbar {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .leaflet-control-zoom,
+  .leaflet-control-attribution {
+    display: none;
+  }
+  .leaflet-container,
+  table {
+    break-inside: avoid;
+  }
+}
