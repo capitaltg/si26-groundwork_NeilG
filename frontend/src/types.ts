@@ -67,6 +67,8 @@ export interface SiteSearchFacility {
   programs: string[];
   compliance_status: string | null;
   significant_violation: boolean;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface SiteSearchResult {

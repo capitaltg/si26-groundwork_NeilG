@@ -12,6 +12,10 @@ def _parse_json(resp: httpx.Response):
     # Response.json() uses rejects. strict=False tolerates them.
     return json.loads(resp.text, strict=False)
 
+
+def _to_float(value):
+    return float(value) if value is not None else None
+
 # EPA-designated PBT (Persistent Bioaccumulative Toxic) chemicals, by tri_chem_id.
 # Pulled from EPA's own tri.tri_chem_info reference table (pbt_ind = 1) —
 # a short, stable list that changes rarely, so it's hardcoded rather than
@@ -312,7 +316,17 @@ async def site_search(
 ):
     facilities_by_id = {}
 
-    def add_facility(registry_id, name, city, state_abbr, program, compliance_status, is_concern):
+    def add_facility(
+        registry_id,
+        name,
+        city,
+        state_abbr,
+        program,
+        compliance_status,
+        is_concern,
+        latitude=None,
+        longitude=None,
+    ):
         if not registry_id:
             return
         entry = facilities_by_id.setdefault(
@@ -325,6 +339,8 @@ async def site_search(
                 "programs": [],
                 "compliance_status": compliance_status,
                 "significant_violation": False,
+                "latitude": None,
+                "longitude": None,
             },
         )
         if program not in entry["programs"]:
@@ -333,6 +349,10 @@ async def site_search(
             entry["significant_violation"] = True
         if compliance_status and not entry["compliance_status"]:
             entry["compliance_status"] = compliance_status
+        if latitude is not None and entry["latitude"] is None:
+            entry["latitude"] = latitude
+        if longitude is not None and entry["longitude"] is None:
+            entry["longitude"] = longitude
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         latitude = None
@@ -444,6 +464,8 @@ async def site_search(
             # FacSNCFlg = EPA's own "Significant Noncompliance" designation --
             # the worst violation tier, distinct from a minor/technical one.
             "significant_violation": row.get("FacSNCFlg") == "Y",
+            "latitude": None,
+            "longitude": None,
         }
 
     for row in superfund_rows:
@@ -458,6 +480,8 @@ async def site_search(
             program="SUPERFUND",
             compliance_status="EPA Superfund Site",
             is_concern=True,
+            latitude=_to_float(row.get("Latitude83")),
+            longitude=_to_float(row.get("Longitude83")),
         )
 
     for row in brownfields_rows:
@@ -470,6 +494,8 @@ async def site_search(
             program="BROWNFIELD",
             compliance_status="Brownfields Property",
             is_concern=False,
+            latitude=_to_float(attrs.get("LATITUDE83")),
+            longitude=_to_float(attrs.get("LONGITUDE83")),
         )
 
     facilities = list(facilities_by_id.values())
