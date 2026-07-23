@@ -1,15 +1,27 @@
-import { MapContainer, TileLayer, Circle, CircleMarker, Popup } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Circle, CircleMarker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import type { LatLngBoundsExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { SiteSearchFacility } from "../types";
 import { PROGRAM_LABELS } from "../constants/programLabels";
 
 const MILES_TO_METERS = 1609.34;
+const SINGLE_PIN_FALLBACK_MILES = 2;
 
 interface SiteSearchMapProps {
   latitude: number | null;
   longitude: number | null;
   radius: number;
   facilities: SiteSearchFacility[];
+}
+
+function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
+  const map = useMap();
+  useEffect(() => {
+    map.fitBounds(bounds, { padding: [20, 20] });
+  }, [map, bounds]);
+  return null;
 }
 
 function SiteSearchMap({ latitude, longitude, radius, facilities }: SiteSearchMapProps) {
@@ -30,12 +42,20 @@ function SiteSearchMap({ latitude, longitude, radius, facilities }: SiteSearchMa
           pinned.reduce((sum, facility) => sum + facility.longitude, 0) / pinned.length,
         ];
 
+  const bounds: LatLngBoundsExpression =
+    latitude !== null && longitude !== null
+      ? L.latLng(latitude, longitude).toBounds(radius * MILES_TO_METERS * 2)
+      : pinned.length > 1
+        ? L.latLngBounds(pinned.map((facility) => [facility.latitude, facility.longitude]))
+        : L.latLng(center[0], center[1]).toBounds(SINGLE_PIN_FALLBACK_MILES * MILES_TO_METERS * 2);
+
   return (
     <MapContainer
       center={center}
       zoom={12}
       style={{ height: "400px", width: "100%", marginBottom: "1rem" }}
     >
+      <FitBounds bounds={bounds} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
