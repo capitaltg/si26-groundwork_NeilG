@@ -76,3 +76,14 @@ export interface SiteSearchResult {
   longitude: number | null;
   facilities: SiteSearchFacility[];
 }
+
+export interface GhgEmitter {
+  facility_id: number;
+  facility_name: string;
+  city: string;
+  state: string;
+  year: number;
+  total_co2e: number;
+  latitude: number | null;
+  longitude: number | null;
+}

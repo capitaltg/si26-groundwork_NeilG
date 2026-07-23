@@ -186,6 +186,66 @@ async def get_hazard_watch(state_abbr: str):
 
 
 """
+Emissions Center endpoint
+State-wide GHG (greenhouse gas) emissions leaderboard, from EPA's
+Greenhouse Gas Reporting Program (GHGRP) -- a separate EPA program/dataset
+from TRI, with its own facility_id numbering that does not correspond to
+tri_facility_id or the EPA registry ID used elsewhere in this app (no
+cross-reference exists here, so leaderboard rows don't link to Facility
+Detail).
+Each raw row is one (facility, gas type, year) record; co2e_emission is
+already expressed in CO2-equivalent, which -- unlike TRI's individual
+chemicals -- is specifically designed to be additive across gas types.
+Determines the most recent year with data for the given state (rather
+than hardcoding a year, so this doesn't need updating as EPA adds new
+reporting years), then sums co2e_emission per facility across every gas
+type reported that year, sorted worst first.
+"""
+@app.get("/api/state/{state_abbr}/ghg-emitters")
+async def get_ghg_emitters(state_abbr: str):
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        latest_year_resp = await client.get(
+            f"https://data.epa.gov/dmapservice/ghg.rlps_ghg_emitter_gas"
+            f"/state/equals/{state_abbr}/sort/year:desc/1:1/json"
+        )
+        latest_year_rows = _parse_json(latest_year_resp)
+        if not latest_year_rows:
+            return []
+        latest_year = latest_year_rows[0]["year"]
+
+        year_resp = await client.get(
+            f"https://data.epa.gov/dmapservice/ghg.rlps_ghg_emitter_gas"
+            f"/state/equals/{state_abbr}/year/equals/{latest_year}/1:10000/json"
+        )
+        rows = _parse_json(year_resp)
+
+    totals_by_facility = {}
+    for row in rows:
+        facility_id = row.get("facility_id")
+        if facility_id is None:
+            continue
+        entry = totals_by_facility.setdefault(
+            facility_id,
+            {
+                "facility_id": facility_id,
+                "facility_name": row.get("facility_name"),
+                "city": row.get("city"),
+                "state": row.get("state"),
+                "year": row.get("year"),
+                "total_co2e": 0,
+                "latitude": row.get("latitude"),
+                "longitude": row.get("longitude"),
+            },
+        )
+        entry["total_co2e"] += row.get("co2e_emission") or 0
+
+    emitters = list(totals_by_facility.values())
+    emitters.sort(key=lambda facility: facility["total_co2e"], reverse=True)
+
+    return emitters
+
+
+"""
 Compliance endpoint
 Cross-references EPA's ECHO system (Enforcement and Compliance History Online)
 for a facility's regulatory standing across environmental programs (Clean Air
