@@ -26,9 +26,9 @@ function deriveBadge(programs: ComplianceProgram[]): Badge {
   if (hasSignificant) {
     return { label: "Significant Violation", bg: colors.dangerBg, color: colors.dangerText, dot: colors.dangerDot };
   }
-  const nonClean = programs.find((p) => p.status && p.status !== "No Violation Identified");
+  const nonClean = programs.find((p) => p.status !== "No Violation Identified");
   if (nonClean) {
-    return { label: nonClean.status as string, bg: colors.warningBg, color: colors.warningText, dot: colors.warningDot };
+    return { label: nonClean.status ?? "Status Unknown", bg: colors.warningBg, color: colors.warningText, dot: colors.warningDot };
   }
   return { label: "No Violation Identified", bg: colors.neutralBg, color: colors.neutralText, dot: colors.successGreen };
 }
