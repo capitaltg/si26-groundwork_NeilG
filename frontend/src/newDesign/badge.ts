@@ -40,7 +40,9 @@ export function labelForFacility(facility: SiteSearchFacility): string {
     facility.programs.includes("SUPERFUND") ||
     facility.programs.includes("BROWNFIELD")
   ) {
-    return facility.compliance_status ?? "Significant Violation";
+    return facility.compliance_status && facility.compliance_status !== "No Violation Identified"
+      ? facility.compliance_status
+      : "Significant Violation";
   }
   if (facility.compliance_status && facility.compliance_status !== "No Violation Identified") {
     return facility.compliance_status;
