@@ -29,7 +29,7 @@ function SiteSearchPageNew() {
     });
   }
 
-  const flaggedCount = facilities.filter((f) => f.significant_violation).length;
+  const flaggedCount = facilities.filter((f) => tierForFacility(f) === "critical").length;
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
