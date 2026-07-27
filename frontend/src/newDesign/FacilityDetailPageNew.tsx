@@ -22,6 +22,9 @@ interface Badge {
 }
 
 function deriveBadge(programs: ComplianceProgram[]): Badge {
+  if (programs.length === 0) {
+    return { label: "No Compliance Data", bg: colors.neutralBg, color: colors.neutralText, dot: colors.mutedText };
+  }
   const hasSignificant = programs.some((p) => p.status === "Significant Violation");
   if (hasSignificant) {
     return { label: "Significant Violation", bg: colors.dangerBg, color: colors.dangerText, dot: colors.dangerDot };
@@ -57,18 +60,24 @@ function FacilityDetailPageNew() {
 
   const chartBars = useMemo(() => {
     if (!activeChemical) return [];
-    const rows = releases
-      .filter((r) => r.chemical === activeChemical)
-      .sort((a, b) => a.year - b.year)
-      .map((r) => ({ year: r.year, total: r.air_release + r.water_release + r.land_release }));
-    const max = Math.max(...rows.map((r) => r.total), 1);
-    return rows.map((r, i) => {
-      const prev = i > 0 ? rows[i - 1].total : 0;
-      const percentChange = prev > 0 ? (r.total - prev) / prev : 0;
+    const totalsByYear: Record<number, number> = {};
+    for (const r of releases) {
+      if (r.chemical !== activeChemical) continue;
+      const total = r.air_release + r.water_release + r.land_release;
+      totalsByYear[r.year] = (totalsByYear[r.year] || 0) + total;
+    }
+    const years = Object.keys(totalsByYear)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const max = Math.max(...years.map((year) => totalsByYear[year]), 1);
+    return years.map((year, i) => {
+      const total = totalsByYear[year];
+      const prev = i > 0 ? totalsByYear[years[i - 1]] : 0;
+      const percentChange = prev > 0 ? (total - prev) / prev : 0;
       const isSpike = percentChange > SPIKE_THRESHOLD;
       return {
-        year: r.year,
-        heightPx: Math.max(8, Math.round((r.total / max) * 200)),
+        year,
+        heightPx: Math.max(8, Math.round((total / max) * 200)),
         isSpike,
         tag: isSpike ? `+${Math.round(percentChange * 100)}%` : "",
       };
