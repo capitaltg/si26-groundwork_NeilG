@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useDesignTheme } from "../newDesign/DesignThemeContext";
 
 function NavBar() {
+  const { theme, setTheme } = useDesignTheme();
+
   return (
     <nav className="navbar navbar-expand navbar-light bg-light mb-3">
       <div className="container-fluid">
@@ -15,6 +18,19 @@ function NavBar() {
           <Link className="nav-link" to="/site-search">
             Site Search
           </Link>
+        </div>
+        <div className="ms-auto d-flex align-items-center gap-2">
+          <span className="small text-muted">Classic</span>
+          <div className="form-check form-switch mb-0">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              role="switch"
+              checked={theme === "new"}
+              onChange={(e) => setTheme(e.target.checked ? "new" : "classic")}
+            />
+          </div>
+          <span className="small text-muted">New Design</span>
         </div>
       </div>
     </nav>
