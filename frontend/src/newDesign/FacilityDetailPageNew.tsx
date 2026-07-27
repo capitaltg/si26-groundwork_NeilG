@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { useFacilityReleases } from "../hooks/useFacilityReleases";
 import { useFacilityCompliance } from "../hooks/useFacilityCompliance";
 import { colors, fonts } from "./theme";
+import { badgeStyle } from "./badge";
+import type { BadgeTier } from "./badge";
 import type { ComplianceProgram } from "../types";
 
 const GENERATOR_STATUS_LABELS: Record<string, string> = {
@@ -22,18 +24,27 @@ interface Badge {
 }
 
 function deriveBadge(programs: ComplianceProgram[]): Badge {
+  let tier: BadgeTier;
+  let label: string;
+
   if (programs.length === 0) {
-    return { label: "No Compliance Data", bg: colors.neutralBg, color: colors.neutralText, dot: colors.mutedText };
+    tier = "unknown";
+    label = "No Compliance Data";
+  } else if (programs.some((p) => p.status === "Significant Violation")) {
+    tier = "critical";
+    label = "Significant Violation";
+  } else {
+    const nonClean = programs.find((p) => p.status !== "No Violation Identified");
+    if (nonClean) {
+      tier = "warning";
+      label = nonClean.status ?? "Status Unknown";
+    } else {
+      tier = "clean";
+      label = "No Violation Identified";
+    }
   }
-  const hasSignificant = programs.some((p) => p.status === "Significant Violation");
-  if (hasSignificant) {
-    return { label: "Significant Violation", bg: colors.dangerBg, color: colors.dangerText, dot: colors.dangerDot };
-  }
-  const nonClean = programs.find((p) => p.status !== "No Violation Identified");
-  if (nonClean) {
-    return { label: nonClean.status ?? "Status Unknown", bg: colors.warningBg, color: colors.warningText, dot: colors.warningDot };
-  }
-  return { label: "No Violation Identified", bg: colors.neutralBg, color: colors.neutralText, dot: colors.successGreen };
+
+  return { label, ...badgeStyle(tier) };
 }
 
 function FacilityDetailPageNew() {
