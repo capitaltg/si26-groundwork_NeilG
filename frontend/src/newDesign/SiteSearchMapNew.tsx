@@ -5,7 +5,7 @@ import type { LatLngBoundsExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { SiteSearchFacility } from "../types";
 import { PROGRAM_LABELS } from "../constants/programLabels";
-import { badgeStyle } from "./badge";
+import { badgeStyle, tierForFacility } from "./badge";
 import type { BadgeTier } from "./badge";
 
 const MILES_TO_METERS = 1609.34;
@@ -16,12 +16,6 @@ interface SiteSearchMapNewProps {
   longitude: number | null;
   radius: number;
   facilities: SiteSearchFacility[];
-}
-
-function tierFor(facility: SiteSearchFacility): BadgeTier {
-  if (facility.significant_violation) return "critical";
-  if (facility.compliance_status && facility.compliance_status !== "No Violation Identified") return "warning";
-  return "clean";
 }
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
@@ -101,7 +95,7 @@ function SiteSearchMapNew({ latitude, longitude, radius, facilities }: SiteSearc
           </>
         )}
         {pinned.map((facility) => {
-          const style = badgeStyle(tierFor(facility));
+          const style = badgeStyle(tierForFacility(facility));
           return (
             <CircleMarker
               key={facility.registry_id}

@@ -1,28 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useSiteSearch } from "../hooks/useSiteSearch";
-import { PROGRAM_LABELS } from "../constants/programLabels";
+import { PROGRAM_LABELS, PROGRAM_TOOLTIPS } from "../constants/programLabels";
 import SiteSearchMapNew from "./SiteSearchMapNew";
-import { badgeStyle } from "./badge";
-import type { BadgeTier } from "./badge";
+import { badgeStyle, tierForFacility, labelForFacility } from "./badge";
 import { colors, fonts } from "./theme";
-import type { SiteSearchFacility } from "../types";
 
 type Mode = "address" | "state";
-
-function tierFor(facility: SiteSearchFacility): BadgeTier {
-  if (facility.significant_violation) return "critical";
-  if (facility.compliance_status && facility.compliance_status !== "No Violation Identified") return "warning";
-  return "clean";
-}
-
-function labelFor(facility: SiteSearchFacility): string {
-  if (facility.significant_violation) return "Significant Violation";
-  if (facility.compliance_status && facility.compliance_status !== "No Violation Identified") {
-    return facility.compliance_status;
-  }
-  return "No Violation Identified";
-}
 
 function SiteSearchPageNew() {
   const [mode, setMode] = useState<Mode>("address");
@@ -215,7 +199,7 @@ function SiteSearchPageNew() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "520px", overflow: "auto", paddingRight: "4px" }}>
               {facilities.map((facility) => {
-                const style = badgeStyle(tierFor(facility));
+                const style = badgeStyle(tierForFacility(facility));
                 return (
                   <div
                     key={facility.registry_id}
@@ -245,13 +229,14 @@ function SiteSearchPageNew() {
                         }}
                       >
                         <span style={{ width: "8px", height: "8px", borderRadius: "99px", background: style.dot, display: "inline-block" }} />
-                        {labelFor(facility)}
+                        {labelForFacility(facility)}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "12px" }}>
                       {facility.programs.map((program) => (
                         <span
                           key={program}
+                          title={PROGRAM_TOOLTIPS[program] ?? program}
                           style={{ background: "#EDF1E7", color: "#3C5142", padding: "4px 11px", borderRadius: "99px", fontSize: "11.5px", fontWeight: 600 }}
                         >
                           {PROGRAM_LABELS[program] ?? program}
