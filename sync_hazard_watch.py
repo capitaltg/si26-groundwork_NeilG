@@ -7,6 +7,7 @@ duplicated. Tolerates individual state failures (logs and continues) so
 one bad EPA response doesn't abort the whole sync -- just re-run the
 script afterward to retry whichever states failed.
 """
+import os
 import sqlite3
 import time
 
@@ -14,7 +15,7 @@ import httpx
 
 from main import PBT_CHEMICAL_IDS
 
-DB_PATH = "hazard_watch_cache.db"
+DB_PATH = os.path.join(os.path.dirname(__file__), "hazard_watch_cache.db")
 
 STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",

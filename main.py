@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from typing import Optional
 
@@ -46,7 +47,7 @@ PBT_CHEMICAL_IDS = {
     "0001222055",  # 1,3,4,6,7,8-Hexahydro-4,6,6,7,8,8-hexamethylcyclopenta[g]-2-benzopyran
 }
 
-HAZARD_WATCH_DB_PATH = "hazard_watch_cache.db"
+HAZARD_WATCH_DB_PATH = os.path.join(os.path.dirname(__file__), "hazard_watch_cache.db")
 
 # Initialize the FastAPI app instance
 app = FastAPI()
