@@ -6,6 +6,7 @@ import HazardWatchPage from "./pages/HazardWatchPage";
 import SiteSearchPage from "./pages/SiteSearchPage";
 import FacilityDetailPageNew from "./newDesign/FacilityDetailPageNew";
 import SiteSearchPageNew from "./newDesign/SiteSearchPageNew";
+import SearchPageNew from "./newDesign/SearchPageNew";
 import { useDesignTheme } from "./newDesign/DesignThemeContext";
 
 function FacilityDetailRoute() {
@@ -18,13 +19,18 @@ function SiteSearchRoute() {
   return theme === "new" ? <SiteSearchPageNew /> : <SiteSearchPage />;
 }
 
+function SearchRoute() {
+  const { theme } = useDesignTheme();
+  return theme === "new" ? <SearchPageNew /> : <SearchPage />;
+}
+
 function App() {
   return (
     <>
       <NavBar />
       <div className="container">
         <Routes>
-          <Route path="/" element={<SearchPage />} />
+          <Route path="/" element={<SearchRoute />} />
           <Route path="/facility/:id" element={<FacilityDetailRoute />} />
           <Route path="/hazard-watch" element={<HazardWatchPage />} />
           <Route path="/site-search" element={<SiteSearchRoute />} />
