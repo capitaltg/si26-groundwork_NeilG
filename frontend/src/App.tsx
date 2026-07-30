@@ -9,6 +9,7 @@ import FacilityDetailPageNew from "./newDesign/FacilityDetailPageNew";
 import SiteSearchPageNew from "./newDesign/SiteSearchPageNew";
 import SearchPageNew from "./newDesign/SearchPageNew";
 import HazardWatchPageNew from "./newDesign/HazardWatchPageNew";
+import EmissionsCenterPageNew from "./newDesign/EmissionsCenterPageNew";
 import { useDesignTheme } from "./newDesign/DesignThemeContext";
 
 function FacilityDetailRoute() {
@@ -31,6 +32,11 @@ function HazardWatchRoute() {
   return theme === "new" ? <HazardWatchPageNew /> : <HazardWatchPage />;
 }
 
+function EmissionsCenterRoute() {
+  const { theme } = useDesignTheme();
+  return theme === "new" ? <EmissionsCenterPageNew /> : <EmissionsCenterPage />;
+}
+
 function App() {
   return (
     <>
@@ -41,7 +47,7 @@ function App() {
           <Route path="/facility/:id" element={<FacilityDetailRoute />} />
           <Route path="/hazard-watch" element={<HazardWatchRoute />} />
           <Route path="/site-search" element={<SiteSearchRoute />} />
-          <Route path="/emissions-center" element={<EmissionsCenterPage />} />
+          <Route path="/emissions-center" element={<EmissionsCenterRoute />} />
         </Routes>
       </div>
     </>
