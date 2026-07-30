@@ -4,6 +4,7 @@ import SearchPage from "./pages/SearchPage";
 import FacilityDetailPage from "./pages/FacilityDetailPage";
 import HazardWatchPage from "./pages/HazardWatchPage";
 import SiteSearchPage from "./pages/SiteSearchPage";
+import EmissionsCenterPage from "./pages/EmissionsCenterPage";
 import FacilityDetailPageNew from "./newDesign/FacilityDetailPageNew";
 import SiteSearchPageNew from "./newDesign/SiteSearchPageNew";
 import SearchPageNew from "./newDesign/SearchPageNew";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/facility/:id" element={<FacilityDetailRoute />} />
           <Route path="/hazard-watch" element={<HazardWatchRoute />} />
           <Route path="/site-search" element={<SiteSearchRoute />} />
+          <Route path="/emissions-center" element={<EmissionsCenterPage />} />
         </Routes>
       </div>
     </>

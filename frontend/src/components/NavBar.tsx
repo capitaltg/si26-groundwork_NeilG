@@ -18,6 +18,9 @@ function NavBar() {
           <Link className="nav-link" to="/site-search">
             Site Search
           </Link>
+          <Link className="nav-link" to="/emissions-center">
+            Emissions Center
+          </Link>
         </div>
         <div className="ms-auto d-flex align-items-center gap-2">
           <span className="small text-muted">Classic</span>
