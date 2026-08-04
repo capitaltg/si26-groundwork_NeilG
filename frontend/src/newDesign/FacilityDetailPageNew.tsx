@@ -88,6 +88,7 @@ function FacilityDetailPageNew() {
       const isSpike = percentChange > SPIKE_THRESHOLD;
       return {
         year,
+        total,
         heightPx: Math.max(8, Math.round((total / max) * 200)),
         isSpike,
         tag: isSpike ? `+${Math.round(percentChange * 100)}%` : "",
@@ -231,11 +232,14 @@ function FacilityDetailPageNew() {
               ))}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "14px", height: "250px", marginTop: "26px" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "14px", height: "270px", marginTop: "26px" }}>
             {chartBars.map((bar) => (
-              <div key={bar.year} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: "8px" }}>
+              <div key={bar.year} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: "4px" }}>
                 <div style={{ fontSize: "11px", fontWeight: 700, color: bar.isSpike ? "#7A591A" : "transparent", background: bar.isSpike ? colors.warningBg : "transparent", padding: "2px 7px", borderRadius: "99px" }}>
                   {bar.tag}
+                </div>
+                <div style={{ fontSize: "11px", fontWeight: 600, color: colors.darkGreen }}>
+                  {bar.total.toLocaleString()} lbs
                 </div>
                 <div
                   style={{

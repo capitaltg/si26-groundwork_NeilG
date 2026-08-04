@@ -23,16 +23,20 @@ function ReleaseChart({ releases, selectedChemical }: ReleaseChartProps) {
 
   const width = 600;
   const height = 220;
-  const padding = 24;
+  // Separate top/bottom reservations (rather than one symmetric "padding")
+  // so there's always room for both the value label and, when present, the
+  // spike percentage tag above even the tallest bar.
+  const topSpace = 34;
+  const bottomSpace = 24;
   const barWidth = years.length > 0 ? width / years.length : width;
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "220px" }}>
       {years.map((year, index) => {
         const value = totalsByYear[year];
-        const barHeight = (value / maxValue) * (height - padding * 2);
+        const barHeight = (value / maxValue) * (height - topSpace - bottomSpace);
         const x = index * barWidth + 2;
-        const y = height - padding - barHeight;
+        const y = height - bottomSpace - barHeight;
 
         const previousYear = years[index - 1];
         const previousValue = previousYear !== undefined ? totalsByYear[previousYear] : 0;
@@ -48,10 +52,19 @@ function ReleaseChart({ releases, selectedChemical }: ReleaseChartProps) {
               height={barHeight}
               fill={isSpike ? "#e07b39" : "#4a90d9"}
             />
+            <text
+              x={x + (barWidth - 4) / 2}
+              y={isSpike ? y - 18 : y - 6}
+              textAnchor="middle"
+              fontSize="9"
+              fill="#333"
+            >
+              {value.toLocaleString()} lbs
+            </text>
             {isSpike && (
               <text
                 x={x + (barWidth - 4) / 2}
-                y={y - 4}
+                y={y - 6}
                 textAnchor="middle"
                 fontSize="10"
                 fill="#e07b39"
