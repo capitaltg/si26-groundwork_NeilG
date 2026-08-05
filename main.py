@@ -127,7 +127,7 @@ async def get_facility_releases(facility_id: str):
             {
                 "chemical": row.get("cas_chem_name"),
                 "chem_id": row.get("tri_chem_id"),
-                "year": row.get("reporting_year"),
+                "year": int(row["reporting_year"]),
                 "air_release": row.get("total_air_release"),
                 "water_release": row.get("total_water_release"),
                 "land_release": row.get("total_land_release"),

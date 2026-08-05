@@ -99,15 +99,30 @@ function FacilityDetailPageNew() {
   const latestYearKpis = useMemo(() => {
     if (releases.length === 0) return null;
     const latestYear = Math.max(...releases.map((r) => r.year));
-    const latestRows = releases.filter((r) => r.year === latestYear);
-    const sum = (key: "air_release" | "water_release" | "land_release") =>
-      latestRows.reduce((s, r) => s + (r[key] || 0), 0);
+    const years = Array.from(new Set(releases.map((r) => r.year)));
+
+    type ReleaseKey = "air_release" | "water_release" | "land_release";
+    const sumForYear = (year: number, key: ReleaseKey) =>
+      releases.filter((r) => r.year === year).reduce((s, r) => s + (r[key] || 0), 0);
+
+    const peakFor = (key: ReleaseKey) =>
+      years.reduce(
+        (best, year) => {
+          const value = sumForYear(year, key);
+          return value > best.value ? { year, value } : best;
+        },
+        { year: latestYear, value: 0 }
+      );
+
     const hazardousCount = new Set(releases.filter((r) => r.is_hazardous).map((r) => r.chemical)).size;
     return {
       year: latestYear,
-      air: sum("air_release"),
-      water: sum("water_release"),
-      land: sum("land_release"),
+      air: sumForYear(latestYear, "air_release"),
+      water: sumForYear(latestYear, "water_release"),
+      land: sumForYear(latestYear, "land_release"),
+      peakAir: peakFor("air_release"),
+      peakWater: peakFor("water_release"),
+      peakLand: peakFor("land_release"),
       hazardousCount,
     };
   }, [releases]);
@@ -187,13 +202,14 @@ function FacilityDetailPageNew() {
       {latestYearKpis && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", marginTop: "18px" }}>
           {[
-            { label: "Air", value: latestYearKpis.air, sub: `lbs · ${latestYearKpis.year}` },
-            { label: "Water", value: latestYearKpis.water, sub: `lbs · ${latestYearKpis.year}` },
-            { label: "Land", value: latestYearKpis.land, sub: `lbs · ${latestYearKpis.year}` },
+            { label: "Air", value: latestYearKpis.air, sub: `lbs · ${latestYearKpis.year}`, peak: latestYearKpis.peakAir },
+            { label: "Water", value: latestYearKpis.water, sub: `lbs · ${latestYearKpis.year}`, peak: latestYearKpis.peakWater },
+            { label: "Land", value: latestYearKpis.land, sub: `lbs · ${latestYearKpis.year}`, peak: latestYearKpis.peakLand },
             {
               label: "PBT chemicals",
               value: latestYearKpis.hazardousCount,
-              sub: latestYearKpis.hazardousCount > 0 ? "flagged hazardous" : "none reported",
+              sub: latestYearKpis.hazardousCount > 0 ? "flagged hazardous, all-time" : "none reported",
+              peak: null,
             },
           ].map((kpi) => (
             <div key={kpi.label} style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, borderRadius: "20px", padding: "18px 20px" }}>
@@ -202,6 +218,11 @@ function FacilityDetailPageNew() {
                 {kpi.value.toLocaleString()}
               </div>
               <div style={{ fontSize: "12px", color: colors.mutedText, marginTop: "2px" }}>{kpi.sub}</div>
+              {kpi.peak && kpi.peak.value > 0 && kpi.peak.year !== latestYearKpis.year && (
+                <div style={{ fontSize: "11px", color: colors.warningText, marginTop: "6px", fontWeight: 600 }}>
+                  Peak: {kpi.peak.value.toLocaleString()} lbs in {kpi.peak.year}
+                </div>
+              )}
             </div>
           ))}
         </div>
