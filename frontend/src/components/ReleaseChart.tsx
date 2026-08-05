@@ -32,6 +32,16 @@ function ReleaseChart({ releases, selectedChemical }: ReleaseChartProps) {
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "220px" }}>
+      <defs>
+        <linearGradient id="release-bar-normal" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3FC77F" />
+          <stop offset="100%" stopColor="#1E7A46" />
+        </linearGradient>
+        <linearGradient id="release-bar-spike" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#C6F24E" />
+          <stop offset="100%" stopColor="#A9CE2E" />
+        </linearGradient>
+      </defs>
       {years.map((year, index) => {
         const value = totalsByYear[year];
         const barHeight = (value / maxValue) * (height - topSpace - bottomSpace);
@@ -50,14 +60,16 @@ function ReleaseChart({ releases, selectedChemical }: ReleaseChartProps) {
               y={y}
               width={barWidth - 4}
               height={barHeight}
-              fill={isSpike ? "#e07b39" : "#4a90d9"}
+              rx="3"
+              fill={isSpike ? "url(#release-bar-spike)" : "url(#release-bar-normal)"}
             />
             <text
               x={x + (barWidth - 4) / 2}
               y={isSpike ? y - 18 : y - 6}
               textAnchor="middle"
               fontSize="9"
-              fill="#333"
+              fontWeight="600"
+              fill="#16382B"
             >
               {value.toLocaleString()} lbs
             </text>
@@ -67,12 +79,19 @@ function ReleaseChart({ releases, selectedChemical }: ReleaseChartProps) {
                 y={y - 6}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#e07b39"
+                fontWeight="700"
+                fill="#8A6414"
               >
                 +{Math.round(percentChange * 100)}%
               </text>
             )}
-            <text x={x + (barWidth - 4) / 2} y={height - 8} textAnchor="middle" fontSize="10">
+            <text
+              x={x + (barWidth - 4) / 2}
+              y={height - 8}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#5E6B60"
+            >
               {year}
             </text>
           </g>
