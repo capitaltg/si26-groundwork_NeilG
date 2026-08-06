@@ -82,7 +82,7 @@ function FacilityDetailPageNew() {
   const rcraLine = formatRcraLine(compliance?.rcra_generator_status ?? null);
 
   return (
-    <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
+    <div id="facility-detail-content" style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
       <div
         style={{
           background: `linear-gradient(150deg, ${colors.midGreen}, ${colors.darkGreen})`,

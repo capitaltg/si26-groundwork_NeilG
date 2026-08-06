@@ -1,5 +1,7 @@
 import type { Facility, FacilityCompliance, Release } from "../types";
+import type { Badge } from "./badge";
 import { deriveBadge } from "./badge";
+import type { ReleaseKpis } from "./releaseKpis";
 import { computeReleaseKpis } from "./releaseKpis";
 import { formatRcraLine } from "./rcra";
 
@@ -14,17 +16,61 @@ const printStyles = `
     #facility-print-summary { display: none; }
   }
   @media print {
-    body * { visibility: hidden; }
-    #facility-print-summary, #facility-print-summary * { visibility: visible; }
-    #facility-print-summary {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      padding: 0;
-    }
+    nav { display: none !important; }
+    #facility-detail-content > *:not(#facility-print-summary) { display: none !important; }
+    #facility-print-summary { display: block !important; }
   }
 `;
+
+function buildNarrative(facility: Facility, kpis: ReleaseKpis | null, badge: Badge, rcraLine: string | null): string[] {
+  const sentences: string[] = [];
+
+  sentences.push(
+    `${facility.name} is located in ${facility.city}, ${facility.state}, and currently carries an overall compliance status of "${badge.label}."`
+  );
+
+  if (kpis) {
+    const totalLatest = kpis.air + kpis.water + kpis.land;
+    if (totalLatest > 0) {
+      const parts = [
+        kpis.air > 0 ? `${kpis.air.toLocaleString()} lbs into the air` : null,
+        kpis.water > 0 ? `${kpis.water.toLocaleString()} lbs into water` : null,
+        kpis.land > 0 ? `${kpis.land.toLocaleString()} lbs onto land` : null,
+      ].filter((p): p is string => p !== null);
+      sentences.push(`In its most recently reported year (${kpis.year}), the facility released ${parts.join(", ")}.`);
+    } else {
+      sentences.push(`In its most recently reported year (${kpis.year}), the facility reported no on-site air, water, or land releases.`);
+    }
+
+    const peaks = [
+      { pathway: "air", ...kpis.peakAir },
+      { pathway: "water", ...kpis.peakWater },
+      { pathway: "land", ...kpis.peakLand },
+    ];
+    const biggestPeak = peaks.reduce((best, p) => (p.value > best.value ? p : best), peaks[0]);
+    if (biggestPeak.value > 0) {
+      sentences.push(
+        `Its largest single-year release on record was ${biggestPeak.value.toLocaleString()} lbs to ${biggestPeak.pathway}, reported in ${biggestPeak.year}.`
+      );
+    }
+
+    if (kpis.hazardousChemicals.length > 0) {
+      sentences.push(
+        `Across its full reporting history, the facility has reported ${kpis.hazardousChemicals.length} chemical(s) designated by the EPA as Persistent, Bioaccumulative, and Toxic (PBT): ${kpis.hazardousChemicals.join(", ")}.`
+      );
+    } else {
+      sentences.push("The facility has not reported any EPA-designated PBT (Persistent, Bioaccumulative, and Toxic) chemicals.");
+    }
+  } else {
+    sentences.push("This facility has no Toxics Release Inventory (TRI) release data on file.");
+  }
+
+  if (rcraLine) {
+    sentences.push(`Under RCRA hazardous waste rules, it is classified as: ${rcraLine}.`);
+  }
+
+  return sentences;
+}
 
 function FacilitySummaryPrint({ facility, releases, compliance }: FacilitySummaryPrintProps) {
   const kpis = computeReleaseKpis(releases);
@@ -37,6 +83,8 @@ function FacilitySummaryPrint({ facility, releases, compliance }: FacilitySummar
     .slice()
     .sort((a, b) => b.year - a.year || a.chemical.localeCompare(b.chemical));
 
+  const narrative = buildNarrative(facility, kpis, badge, rcraLine);
+
   return (
     <div id="facility-print-summary" style={{ fontFamily: "Georgia, serif", color: "#1A231D", fontSize: "12px" }}>
       <h1 style={{ fontSize: "22px", marginBottom: "2px" }}>{facility.name}</h1>
@@ -44,10 +92,8 @@ function FacilitySummaryPrint({ facility, releases, compliance }: FacilitySummar
         {facility.address} · {facility.city}, {facility.state} {facility.zip}
       </div>
       <div>Parent company: {facility.parent_company || "—"}</div>
-      <div style={{ marginTop: "10px", fontWeight: "bold" }}>
-        Compliance status: {badge.label}
-      </div>
-      {rcraLine && <div>Hazardous waste (RCRA): {rcraLine}</div>}
+
+      <p style={{ marginTop: "14px", lineHeight: "1.6" }}>{narrative.join(" ")}</p>
 
       {kpis && (
         <div style={{ marginTop: "16px" }}>
