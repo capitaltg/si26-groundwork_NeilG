@@ -1,5 +1,5 @@
 import { colors } from "./theme";
-import type { SiteSearchFacility } from "../types";
+import type { ComplianceProgram, SiteSearchFacility } from "../types";
 
 export type BadgeTier = "critical" | "warning" | "clean" | "unknown";
 
@@ -7,6 +7,10 @@ export interface BadgeColors {
   bg: string;
   color: string;
   dot: string;
+}
+
+export interface Badge extends BadgeColors {
+  label: string;
 }
 
 export function badgeStyle(tier: BadgeTier): BadgeColors {
@@ -20,6 +24,30 @@ export function badgeStyle(tier: BadgeTier): BadgeColors {
     case "clean":
       return { bg: colors.neutralBg, color: colors.neutralText, dot: colors.successGreen };
   }
+}
+
+export function deriveBadge(programs: ComplianceProgram[]): Badge {
+  let tier: BadgeTier;
+  let label: string;
+
+  if (programs.length === 0) {
+    tier = "unknown";
+    label = "No Compliance Data";
+  } else if (programs.some((p) => p.status === "Significant Violation")) {
+    tier = "critical";
+    label = "Significant Violation";
+  } else {
+    const nonClean = programs.find((p) => p.status !== "No Violation Identified");
+    if (nonClean) {
+      tier = "warning";
+      label = nonClean.status ?? "Status Unknown";
+    } else {
+      tier = "clean";
+      label = "No Violation Identified";
+    }
+  }
+
+  return { label, ...badgeStyle(tier) };
 }
 
 export function tierForFacility(facility: SiteSearchFacility): BadgeTier {

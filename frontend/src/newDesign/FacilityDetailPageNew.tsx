@@ -3,49 +3,12 @@ import { useParams } from "react-router-dom";
 import { useFacilityReleases } from "../hooks/useFacilityReleases";
 import { useFacilityCompliance } from "../hooks/useFacilityCompliance";
 import { colors, fonts } from "./theme";
-import { badgeStyle } from "./badge";
-import type { BadgeTier } from "./badge";
-import type { ComplianceProgram } from "../types";
-
-const GENERATOR_STATUS_LABELS: Record<string, string> = {
-  VSQG: "Very Small Quantity Generator",
-  SQG: "Small Quantity Generator",
-  LQG: "Large Quantity Generator",
-  TSDF: "Treatment, Storage, and Disposal Facility",
-};
+import { deriveBadge } from "./badge";
+import { computeReleaseKpis } from "./releaseKpis";
+import { formatRcraLine } from "./rcra";
+import FacilitySummaryPrint from "./FacilitySummaryPrint";
 
 const SPIKE_THRESHOLD = 0.5;
-
-interface Badge {
-  label: string;
-  bg: string;
-  color: string;
-  dot: string;
-}
-
-function deriveBadge(programs: ComplianceProgram[]): Badge {
-  let tier: BadgeTier;
-  let label: string;
-
-  if (programs.length === 0) {
-    tier = "unknown";
-    label = "No Compliance Data";
-  } else if (programs.some((p) => p.status === "Significant Violation")) {
-    tier = "critical";
-    label = "Significant Violation";
-  } else {
-    const nonClean = programs.find((p) => p.status !== "No Violation Identified");
-    if (nonClean) {
-      tier = "warning";
-      label = nonClean.status ?? "Status Unknown";
-    } else {
-      tier = "clean";
-      label = "No Violation Identified";
-    }
-  }
-
-  return { label, ...badgeStyle(tier) };
-}
 
 function FacilityDetailPageNew() {
   const { id } = useParams();
@@ -96,36 +59,7 @@ function FacilityDetailPageNew() {
     });
   }, [releases, activeChemical]);
 
-  const latestYearKpis = useMemo(() => {
-    if (releases.length === 0) return null;
-    const latestYear = Math.max(...releases.map((r) => r.year));
-    const years = Array.from(new Set(releases.map((r) => r.year)));
-
-    type ReleaseKey = "air_release" | "water_release" | "land_release";
-    const sumForYear = (year: number, key: ReleaseKey) =>
-      releases.filter((r) => r.year === year).reduce((s, r) => s + (r[key] || 0), 0);
-
-    const peakFor = (key: ReleaseKey) =>
-      years.reduce(
-        (best, year) => {
-          const value = sumForYear(year, key);
-          return value > best.value ? { year, value } : best;
-        },
-        { year: latestYear, value: 0 }
-      );
-
-    const hazardousCount = new Set(releases.filter((r) => r.is_hazardous).map((r) => r.chemical)).size;
-    return {
-      year: latestYear,
-      air: sumForYear(latestYear, "air_release"),
-      water: sumForYear(latestYear, "water_release"),
-      land: sumForYear(latestYear, "land_release"),
-      peakAir: peakFor("air_release"),
-      peakWater: peakFor("water_release"),
-      peakLand: peakFor("land_release"),
-      hazardousCount,
-    };
-  }, [releases]);
+  const latestYearKpis = useMemo(() => computeReleaseKpis(releases), [releases]);
 
   if (releasesLoading || complianceLoading) {
     return <p style={{ fontFamily: fonts.body, padding: "24px" }}>Loading...</p>;
@@ -145,12 +79,7 @@ function FacilityDetailPageNew() {
 
   const programs = compliance?.programs ?? [];
   const badge = deriveBadge(programs);
-  const rcra = compliance?.rcra_generator_status;
-  const rcraLine = rcra
-    ? `${GENERATOR_STATUS_LABELS[rcra.generator_status ?? ""] ?? rcra.generator_status} — ${
-        rcra.active_status ?? "Unknown status"
-      } — ${rcra.compliance_status ?? "No compliance data"}`
-    : null;
+  const rcraLine = formatRcraLine(compliance?.rcra_generator_status ?? null);
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
@@ -179,22 +108,41 @@ function FacilityDetailPageNew() {
               Parent company · {facility.parent_company} &nbsp;|&nbsp; {facility.county} &nbsp;|&nbsp; {facility.latitude}, {facility.longitude}
             </div>
           </div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "10px",
-              background: badge.bg,
-              color: badge.color,
-              padding: "8px 16px",
-              borderRadius: "999px",
-              fontSize: "13px",
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span style={{ width: "8px", height: "8px", borderRadius: "99px", background: badge.dot, display: "inline-block" }} />
-            {badge.label}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                background: badge.bg,
+                color: badge.color,
+                padding: "8px 16px",
+                borderRadius: "999px",
+                fontSize: "13px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{ width: "8px", height: "8px", borderRadius: "99px", background: badge.dot, display: "inline-block" }} />
+              {badge.label}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              style={{
+                border: "1px solid rgba(255,255,255,0.4)",
+                background: "transparent",
+                color: "#EAF1E6",
+                padding: "7px 14px",
+                borderRadius: "999px",
+                fontSize: "12.5px",
+                fontWeight: 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Download summary
+            </button>
           </div>
         </div>
       </div>
@@ -207,8 +155,8 @@ function FacilityDetailPageNew() {
             { label: "Land", value: latestYearKpis.land, sub: `lbs · ${latestYearKpis.year}`, peak: latestYearKpis.peakLand },
             {
               label: "PBT chemicals",
-              value: latestYearKpis.hazardousCount,
-              sub: latestYearKpis.hazardousCount > 0 ? "flagged hazardous, all-time" : "none reported",
+              value: latestYearKpis.hazardousChemicals.length,
+              sub: latestYearKpis.hazardousChemicals.length > 0 ? "flagged hazardous, all-time" : "none reported",
               peak: null,
             },
           ].map((kpi) => (
@@ -377,6 +325,8 @@ function FacilityDetailPageNew() {
           </div>
         </div>
       )}
+
+      <FacilitySummaryPrint facility={facility} releases={releases} compliance={compliance} />
     </div>
   );
 }
