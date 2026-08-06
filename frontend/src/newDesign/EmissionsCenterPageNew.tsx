@@ -3,6 +3,7 @@ import { useGhgEmitters } from "../hooks/useGhgEmitters";
 import { useGhgEmitterHistory } from "../hooks/useGhgEmitterHistory";
 import { colors, fonts } from "./theme";
 import EmissionsLineChart from "./EmissionsLineChart";
+import { computeTrendFlag } from "./emissionsTrend";
 
 function EmissionsCenterPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -105,6 +106,32 @@ function EmissionsCenterPageNew() {
                         <div style={{ fontSize: "13px", fontWeight: 600, color: colors.darkGreen, marginBottom: "6px" }}>
                           CO2e emissions by year
                         </div>
+                        {(() => {
+                          const trend = computeTrendFlag(history.history);
+                          if (!trend) return null;
+                          const baselineRange = `${trend.baselineYears[0]}–${trend.baselineYears[trend.baselineYears.length - 1]}`;
+                          return (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                background: colors.warningBg,
+                                color: colors.warningText,
+                                borderRadius: "12px",
+                                padding: "10px 14px",
+                                marginBottom: "10px",
+                                fontSize: "13px",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <span style={{ width: "8px", height: "8px", borderRadius: "99px", background: colors.warningDot, display: "inline-block", flexShrink: 0 }} />
+                              Rising emissions: {trend.latestYear} is up {Math.round(trend.pctChange * 100)}% (
+                              {Math.round(trend.absChange).toLocaleString()} t CO2e) vs. the {baselineRange} average — an
+                              increase on its own large enough to trigger mandatory GHGRP reporting for a new source.
+                            </div>
+                          );
+                        })()}
                         <EmissionsLineChart data={history.history} />
                       </>
                     )}

@@ -1,5 +1,6 @@
 import type { GhgEmitterYear } from "../types";
 import { colors } from "./theme";
+import { markSpikes } from "./emissionsTrend";
 
 interface EmissionsLineChartProps {
   data: GhgEmitterYear[];
@@ -13,14 +14,15 @@ function EmissionsLineChart({ data }: EmissionsLineChartProps) {
   const width = 640;
   const height = 220;
   const sidePad = 24;
-  const topSpace = 26;
+  const topSpace = 34;
   const bottomSpace = 24;
 
+  const spikeMarked = markSpikes(data);
   const maxValue = Math.max(...data.map((d) => d.total_co2e), 1);
   const plotWidth = width - sidePad * 2;
   const stepX = data.length > 1 ? plotWidth / (data.length - 1) : 0;
 
-  const points = data.map((d, i) => ({
+  const points = spikeMarked.map((d, i) => ({
     ...d,
     x: sidePad + i * stepX,
     y: height - bottomSpace - (d.total_co2e / maxValue) * (height - topSpace - bottomSpace),
@@ -33,8 +35,20 @@ function EmissionsLineChart({ data }: EmissionsLineChartProps) {
       <path d={linePath} fill="none" stroke={colors.midGreen} strokeWidth="2.5" />
       {points.map((p) => (
         <g key={p.year}>
-          <circle cx={p.x} cy={p.y} r="3.5" fill={colors.darkGreen} />
-          <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="9" fontWeight="600" fill={colors.darkGreen}>
+          <circle cx={p.x} cy={p.y} r={p.isSpike ? 5 : 3.5} fill={p.isSpike ? colors.warningDot : colors.darkGreen} />
+          {p.isSpike && (
+            <text x={p.x} y={p.y - 20} textAnchor="middle" fontSize="10" fontWeight="700" fill={colors.warningText}>
+              +{Math.round((p.pctChange ?? 0) * 100)}%
+            </text>
+          )}
+          <text
+            x={p.x}
+            y={p.y - 8}
+            textAnchor="middle"
+            fontSize="9"
+            fontWeight="600"
+            fill={p.isSpike ? colors.warningText : colors.darkGreen}
+          >
             {Math.round(p.total_co2e).toLocaleString()}
           </text>
           <text x={p.x} y={height - 6} textAnchor="middle" fontSize="10" fill={colors.mutedText}>
