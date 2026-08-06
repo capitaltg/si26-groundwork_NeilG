@@ -87,3 +87,13 @@ export interface GhgEmitter {
   latitude: number | null;
   longitude: number | null;
 }
+
+export interface GhgEmitterYear {
+  year: number;
+  total_co2e: number;
+}
+
+export interface GhgEmitterHistory {
+  facility_name: string | null;
+  history: GhgEmitterYear[];
+}

@@ -243,6 +243,40 @@ async def get_ghg_emitters(state_abbr: str):
 
 
 """
+GHG emitter history endpoint
+Every (gas type, year) row on file for a single GHGRP facility_id, summed
+to one total_co2e per year -- the multi-year time series behind the
+Emissions Center's per-facility trend chart.
+"""
+@app.get("/api/ghg-emitter/{facility_id}/history")
+async def get_ghg_emitter_history(facility_id: int):
+    url = (
+        f"https://data.epa.gov/dmapservice/ghg.rlps_ghg_emitter_gas"
+        f"/facility_id/equals/{facility_id}"
+        f"/sort/year:asc/1:500/json"
+    )
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        r = await client.get(url)
+        rows = _parse_json(r)
+
+    facility_name = None
+    totals_by_year = {}
+    for row in rows:
+        year = row.get("year")
+        if year is None:
+            continue
+        facility_name = facility_name or row.get("facility_name")
+        totals_by_year[year] = totals_by_year.get(year, 0) + (row.get("co2e_emission") or 0)
+
+    return {
+        "facility_name": facility_name,
+        "history": [
+            {"year": year, "total_co2e": totals_by_year[year]} for year in sorted(totals_by_year)
+        ],
+    }
+
+
+"""
 Compliance endpoint
 Cross-references EPA's ECHO system (Enforcement and Compliance History Online)
 for a facility's regulatory standing across environmental programs (Clean Air

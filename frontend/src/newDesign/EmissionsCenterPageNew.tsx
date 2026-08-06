@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useGhgEmitters } from "../hooks/useGhgEmitters";
+import { useGhgEmitterHistory } from "../hooks/useGhgEmitterHistory";
 import { colors, fonts } from "./theme";
+import EmissionsLineChart from "./EmissionsLineChart";
 
 function EmissionsCenterPageNew() {
   const [inputValue, setInputValue] = useState("MD");
   const [submittedState, setSubmittedState] = useState("MD");
   const { emitters, loading, error } = useGhgEmitters(submittedState);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const { data: history, loading: historyLoading, error: historyError } = useGhgEmitterHistory(expandedId);
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
@@ -62,31 +66,53 @@ function EmissionsCenterPageNew() {
       )}
       {!loading && !error && emitters.length > 0 && (
         <div style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, borderRadius: "24px", overflow: "hidden" }}>
-          {emitters.map((emitter, i) => (
-            <div
-              key={emitter.facility_id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "44px 1.6fr 1fr 1fr 1.2fr",
-                gap: "16px",
-                alignItems: "center",
-                padding: "18px 22px",
-                borderBottom: i === emitters.length - 1 ? "none" : "1px solid #EEF0E7",
-              }}
-            >
-              <div style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "22px", color: colors.midGreen }}>
-                {i + 1}
+          {emitters.map((emitter, i) => {
+            const isExpanded = expandedId === emitter.facility_id;
+            return (
+              <div key={emitter.facility_id} style={{ borderBottom: i === emitters.length - 1 ? "none" : "1px solid #EEF0E7" }}>
+                <div
+                  onClick={() => setExpandedId(isExpanded ? null : emitter.facility_id)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "44px 1.6fr 1fr 1fr 1.2fr",
+                    gap: "16px",
+                    alignItems: "center",
+                    padding: "18px 22px",
+                    cursor: "pointer",
+                    background: isExpanded ? "#F5F8F1" : "transparent",
+                  }}
+                >
+                  <div style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "22px", color: colors.midGreen }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "16px", color: colors.darkGreen }}>
+                    {emitter.facility_name}
+                  </div>
+                  <div style={{ fontSize: "14px", color: colors.mutedText }}>{emitter.city}</div>
+                  <div style={{ fontSize: "14px", color: colors.mutedText }}>{emitter.year}</div>
+                  <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "15px", color: colors.darkGreen, textAlign: "right" }}>
+                    {emitter.total_co2e.toLocaleString()} t CO2e
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div style={{ padding: "6px 22px 22px", background: "#F5F8F1" }}>
+                    {historyLoading && <p style={{ fontSize: "13px", color: colors.mutedText }}>Loading history...</p>}
+                    {historyError && (
+                      <p style={{ fontSize: "13px", color: colors.dangerText }}>Error loading history: {historyError}</p>
+                    )}
+                    {history && !historyLoading && !historyError && (
+                      <>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: colors.darkGreen, marginBottom: "6px" }}>
+                          CO2e emissions by year
+                        </div>
+                        <EmissionsLineChart data={history.history} />
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-              <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "16px", color: colors.darkGreen }}>
-                {emitter.facility_name}
-              </div>
-              <div style={{ fontSize: "14px", color: colors.mutedText }}>{emitter.city}</div>
-              <div style={{ fontSize: "14px", color: colors.mutedText }}>{emitter.year}</div>
-              <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "15px", color: colors.darkGreen, textAlign: "right" }}>
-                {emitter.total_co2e.toLocaleString()} t CO2e
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
