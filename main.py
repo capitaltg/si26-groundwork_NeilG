@@ -397,6 +397,14 @@ property" workflow used in real Phase 1 Environmental Site Assessments
 Note: ECHO's facility search results include latitude but not longitude, so
 exact per-facility distance isn't shown -- the radius search itself already
 guarantees every result falls within the requested radius.
+
+Address mode also returns two more spatial layers around that same point,
+each queried directly against public unauthenticated ArcGIS services:
+impaired/threatened water bodies from EPA's ATTAINS system (Clean Water
+Act 303(d) list, across its point/line/area sublayers for beaches/
+rivers/lakes-bays) and USFWS critical habitat for threatened/endangered
+species (final + proposed). Both come back empty in state mode, since
+"nearby" isn't a meaningful concept for an entire state.
 """
 @app.get("/api/site-search")
 async def site_search(
@@ -457,7 +465,7 @@ async def site_search(
             matches = _parse_json(geocode_resp).get("result", {}).get("addressMatches") or []
 
             if not matches:
-                return {"latitude": None, "longitude": None, "facilities": []}
+                return {"latitude": None, "longitude": None, "facilities": [], "water_bodies": [], "critical_habitats": []}
 
             coordinates = matches[0]["coordinates"]
             latitude = coordinates["y"]
@@ -492,7 +500,7 @@ async def site_search(
             superfund_params = {"state_abbr": state, "pgm_sys_acrnm": "SEMS", "output": "JSON"}
             brownfields_params = {"where": f"STATE_CODE='{state}'", "outFields": "*", "f": "json"}
         else:
-            return {"latitude": None, "longitude": None, "facilities": []}
+            return {"latitude": None, "longitude": None, "facilities": [], "water_bodies": [], "critical_habitats": []}
 
         search_resp = await client.get(
             "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
@@ -528,6 +536,75 @@ async def site_search(
             params=brownfields_params,
         )
         brownfields_rows = _parse_json(brownfields_resp).get("features") or []
+
+        # Water/habitat overlap only makes sense for a specific point, not a
+        # whole state, so these two only run in address mode.
+        water_bodies = []
+        critical_habitats = []
+        if latitude is not None and longitude is not None:
+            # Layers: 0 = assessment points (e.g. beaches), 1 = lines (rivers/streams), 2 = areas (lakes/bays).
+            for layer in (0, 1, 2):
+                resp = await client.get(
+                    f"https://gispub.epa.gov/arcgis/rest/services/OW/ATTAINS_Assessment/MapServer/{layer}/query",
+                    params={
+                        "geometry": f"{longitude},{latitude}",
+                        "geometryType": "esriGeometryPoint",
+                        "inSR": 4326,
+                        "distance": radius,
+                        "units": "esriSRUnit_StatuteMile",
+                        "spatialRel": "esriSpatialRelIntersects",
+                        "outFields": "assessmentunitname,isimpaired,isthreatened,on303dlist,hastmdl",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                try:
+                    rows = _parse_json(resp).get("features") or []
+                except json.JSONDecodeError:
+                    rows = []
+                for row in rows:
+                    attrs = row.get("attributes", {})
+                    name = attrs.get("assessmentunitname")
+                    if not name:
+                        continue
+                    if attrs.get("isimpaired") == "Y" or attrs.get("isthreatened") == "Y" or attrs.get("on303dlist") == "Y":
+                        water_bodies.append({
+                            "name": name,
+                            "is_impaired": attrs.get("isimpaired") == "Y",
+                            "is_threatened": attrs.get("isthreatened") == "Y",
+                            "on_303d_list": attrs.get("on303dlist") == "Y",
+                            "has_tmdl": attrs.get("hastmdl") == "Y",
+                        })
+
+            # Layers: 0 = final critical habitat, 2 = proposed critical habitat.
+            for layer in (0, 2):
+                resp = await client.get(
+                    f"https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/{layer}/query",
+                    params={
+                        "geometry": f"{longitude},{latitude}",
+                        "geometryType": "esriGeometryPoint",
+                        "inSR": 4326,
+                        "distance": radius,
+                        "units": "esriSRUnit_StatuteMile",
+                        "spatialRel": "esriSpatialRelIntersects",
+                        "outFields": "comname,sciname,status",
+                        "returnGeometry": "false",
+                        "f": "json",
+                    },
+                )
+                try:
+                    rows = _parse_json(resp).get("features") or []
+                except json.JSONDecodeError:
+                    rows = []
+                for row in rows:
+                    attrs = row.get("attributes", {})
+                    if not attrs.get("comname"):
+                        continue
+                    critical_habitats.append({
+                        "common_name": attrs.get("comname"),
+                        "scientific_name": attrs.get("sciname"),
+                        "status": attrs.get("status"),
+                    })
 
     for row in echo_rows:
         programs = []
@@ -603,6 +680,8 @@ async def site_search(
         "latitude": latitude,
         "longitude": longitude,
         "facilities": facilities,
+        "water_bodies": _dedupe(water_bodies, lambda w: w["name"]),
+        "critical_habitats": _dedupe(critical_habitats, lambda c: (c["common_name"], c["status"])),
     }
 
 
@@ -616,101 +695,3 @@ def _dedupe(items, key):
         seen.add(k)
         out.append(item)
     return out
-
-
-"""
-Property Overview endpoint
-Given a home address, combines the existing cross-program facility search
-(TRI/RCRA/CAA/CWA/SDWA + Superfund + Brownfields, via site_search) with two
-EPA/USFWS spatial layers not used anywhere else in this app: ATTAINS
-impaired/threatened water bodies (Clean Water Act 303(d) list, queried
-across its point/line/area sublayers for beaches/rivers/lakes-bays) and
-USFWS critical habitat for threatened/endangered species (final +
-proposed). All three are geocoded to the same point and queried within
-the same radius -- this reuses site_search's geocode + ECHO/FRS/ACRES
-logic directly rather than re-implementing it.
-"""
-@app.get("/api/property-overview")
-async def property_overview(address: str, radius: float = 2.0):
-    base = await site_search(address=address, radius=radius, limit=50)
-    latitude = base["latitude"]
-    longitude = base["longitude"]
-
-    if latitude is None or longitude is None:
-        return {"latitude": None, "longitude": None, "facilities": [], "water_bodies": [], "critical_habitats": []}
-
-    water_bodies = []
-    critical_habitats = []
-
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        # Layers: 0 = assessment points (e.g. beaches), 1 = lines (rivers/streams), 2 = areas (lakes/bays).
-        for layer in (0, 1, 2):
-            resp = await client.get(
-                f"https://gispub.epa.gov/arcgis/rest/services/OW/ATTAINS_Assessment/MapServer/{layer}/query",
-                params={
-                    "geometry": f"{longitude},{latitude}",
-                    "geometryType": "esriGeometryPoint",
-                    "inSR": 4326,
-                    "distance": radius,
-                    "units": "esriSRUnit_StatuteMile",
-                    "spatialRel": "esriSpatialRelIntersects",
-                    "outFields": "assessmentunitname,isimpaired,isthreatened,on303dlist,hastmdl",
-                    "returnGeometry": "false",
-                    "f": "json",
-                },
-            )
-            try:
-                rows = _parse_json(resp).get("features") or []
-            except json.JSONDecodeError:
-                rows = []
-            for row in rows:
-                attrs = row.get("attributes", {})
-                name = attrs.get("assessmentunitname")
-                if not name:
-                    continue
-                if attrs.get("isimpaired") == "Y" or attrs.get("isthreatened") == "Y" or attrs.get("on303dlist") == "Y":
-                    water_bodies.append({
-                        "name": name,
-                        "is_impaired": attrs.get("isimpaired") == "Y",
-                        "is_threatened": attrs.get("isthreatened") == "Y",
-                        "on_303d_list": attrs.get("on303dlist") == "Y",
-                        "has_tmdl": attrs.get("hastmdl") == "Y",
-                    })
-
-        # Layers: 0 = final critical habitat, 2 = proposed critical habitat.
-        for layer in (0, 2):
-            resp = await client.get(
-                f"https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/{layer}/query",
-                params={
-                    "geometry": f"{longitude},{latitude}",
-                    "geometryType": "esriGeometryPoint",
-                    "inSR": 4326,
-                    "distance": radius,
-                    "units": "esriSRUnit_StatuteMile",
-                    "spatialRel": "esriSpatialRelIntersects",
-                    "outFields": "comname,sciname,status",
-                    "returnGeometry": "false",
-                    "f": "json",
-                },
-            )
-            try:
-                rows = _parse_json(resp).get("features") or []
-            except json.JSONDecodeError:
-                rows = []
-            for row in rows:
-                attrs = row.get("attributes", {})
-                if not attrs.get("comname"):
-                    continue
-                critical_habitats.append({
-                    "common_name": attrs.get("comname"),
-                    "scientific_name": attrs.get("sciname"),
-                    "status": attrs.get("status"),
-                })
-
-    return {
-        "latitude": latitude,
-        "longitude": longitude,
-        "facilities": base["facilities"],
-        "water_bodies": _dedupe(water_bodies, lambda w: w["name"]),
-        "critical_habitats": _dedupe(critical_habitats, lambda c: (c["common_name"], c["status"])),
-    }

@@ -71,12 +71,6 @@ export interface SiteSearchFacility {
   longitude: number | null;
 }
 
-export interface SiteSearchResult {
-  latitude: number | null;
-  longitude: number | null;
-  facilities: SiteSearchFacility[];
-}
-
 export interface WaterBody {
   name: string;
   is_impaired: boolean;
@@ -91,7 +85,7 @@ export interface CriticalHabitat {
   status: string | null;
 }
 
-export interface PropertyOverviewResult {
+export interface SiteSearchResult {
   latitude: number | null;
   longitude: number | null;
   facilities: SiteSearchFacility[];

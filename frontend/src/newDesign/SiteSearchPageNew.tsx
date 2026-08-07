@@ -5,6 +5,7 @@ import { PROGRAM_LABELS, PROGRAM_TOOLTIPS } from "../constants/programLabels";
 import SiteSearchMapNew from "./SiteSearchMapNew";
 import { badgeStyle, tierForFacility, labelForFacility } from "./badge";
 import { colors, fonts } from "./theme";
+import { DetailSection } from "./chipList";
 
 type Mode = "address" | "state";
 
@@ -14,7 +15,7 @@ function SiteSearchPageNew() {
   const [state, setState] = useState("");
   const [radius, setRadius] = useState(1);
   const [limit, setLimit] = useState(100);
-  const { facilities, latitude, longitude, loading, error, searched, lastSearch, search } =
+  const { facilities, waterBodies, criticalHabitats, latitude, longitude, loading, error, searched, lastSearch, search } =
     useSiteSearch();
 
   function handleSubmit(e: FormEvent) {
@@ -248,6 +249,28 @@ function SiteSearchPageNew() {
               })}
             </div>
           </div>
+
+          {(waterBodies.length > 0 || criticalHabitats.length > 0) && (
+            <div style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, borderRadius: "20px", padding: "22px 24px", marginTop: "22px" }}>
+              <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "17px", color: colors.darkGreen, marginBottom: "14px" }}>
+                Nearby water &amp; habitat
+              </div>
+              <DetailSection
+                title="Impaired or threatened water bodies"
+                count={waterBodies.length}
+                items={waterBodies.map((w) => ({
+                  label: `${w.name}${w.on_303d_list ? " · 303(d)" : ""}${w.has_tmdl ? " · TMDL" : ""}`,
+                }))}
+              />
+              <DetailSection
+                title="Critical habitat species"
+                count={criticalHabitats.length}
+                items={criticalHabitats.map((c) => ({
+                  label: c.scientific_name ? `${c.common_name} (${c.scientific_name})` : c.common_name,
+                }))}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

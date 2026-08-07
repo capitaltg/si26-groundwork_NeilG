@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SiteSearchFacility } from "../types";
+import type { CriticalHabitat, SiteSearchFacility, WaterBody } from "../types";
 
 interface SiteSearchParams {
   address?: string;
@@ -16,6 +16,8 @@ export interface SubmittedSearch {
 
 export function useSiteSearch() {
   const [facilities, setFacilities] = useState<SiteSearchFacility[]>([]);
+  const [waterBodies, setWaterBodies] = useState<WaterBody[]>([]);
+  const [criticalHabitats, setCriticalHabitats] = useState<CriticalHabitat[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,8 @@ export function useSiteSearch() {
       })
       .then((data) => {
         setFacilities(data.facilities);
+        setWaterBodies(data.water_bodies);
+        setCriticalHabitats(data.critical_habitats);
         setLatitude(data.latitude);
         setLongitude(data.longitude);
       })
@@ -45,5 +49,5 @@ export function useSiteSearch() {
       .finally(() => setLoading(false));
   }
 
-  return { facilities, latitude, longitude, loading, error, searched, lastSearch, search };
+  return { facilities, waterBodies, criticalHabitats, latitude, longitude, loading, error, searched, lastSearch, search };
 }
