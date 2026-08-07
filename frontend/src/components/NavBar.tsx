@@ -24,6 +24,9 @@ function NavBar() {
           <Link className="nav-link" to="/state-overview">
             State Overview
           </Link>
+          <Link className="nav-link" to="/property-overview">
+            Property Overview
+          </Link>
         </div>
         <div className="ms-auto d-flex align-items-center gap-2">
           <span className="small text-muted">Classic</span>

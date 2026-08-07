@@ -77,6 +77,28 @@ export interface SiteSearchResult {
   facilities: SiteSearchFacility[];
 }
 
+export interface WaterBody {
+  name: string;
+  is_impaired: boolean;
+  is_threatened: boolean;
+  on_303d_list: boolean;
+  has_tmdl: boolean;
+}
+
+export interface CriticalHabitat {
+  common_name: string;
+  scientific_name: string | null;
+  status: string | null;
+}
+
+export interface PropertyOverviewResult {
+  latitude: number | null;
+  longitude: number | null;
+  facilities: SiteSearchFacility[];
+  water_bodies: WaterBody[];
+  critical_habitats: CriticalHabitat[];
+}
+
 export interface GhgEmitter {
   facility_id: number;
   facility_name: string;

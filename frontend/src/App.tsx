@@ -11,6 +11,7 @@ import SearchPageNew from "./newDesign/SearchPageNew";
 import HazardWatchPageNew from "./newDesign/HazardWatchPageNew";
 import EmissionsCenterPageNew from "./newDesign/EmissionsCenterPageNew";
 import StateOverviewPageNew from "./newDesign/StateOverviewPageNew";
+import PropertyOverviewPageNew from "./newDesign/PropertyOverviewPageNew";
 import { useDesignTheme } from "./newDesign/DesignThemeContext";
 
 function FacilityDetailRoute() {
@@ -50,6 +51,7 @@ function App() {
           <Route path="/site-search" element={<SiteSearchRoute />} />
           <Route path="/emissions-center" element={<EmissionsCenterRoute />} />
           <Route path="/state-overview" element={<StateOverviewPageNew />} />
+          <Route path="/property-overview" element={<PropertyOverviewPageNew />} />
         </Routes>
       </div>
     </>
