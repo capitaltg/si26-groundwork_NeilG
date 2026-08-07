@@ -28,6 +28,63 @@ function gradeTier(grade: RiskGrade): BadgeTier {
   return "critical";
 }
 
+const CHIP_DISPLAY_LIMIT = 12;
+
+interface ChipItem {
+  label: string;
+  to?: string;
+}
+
+function Chip({ label, to }: ChipItem) {
+  const style = {
+    display: "inline-block",
+    fontSize: "12.5px",
+    fontWeight: 600,
+    color: to ? colors.midGreen : colors.bodyText,
+    background: colors.cardBackground,
+    border: `1px solid ${colors.cardBorder}`,
+    borderRadius: "8px",
+    padding: "4px 10px",
+    textDecoration: "none",
+  } as const;
+  return to ? (
+    <Link to={to} style={style}>
+      {label}
+    </Link>
+  ) : (
+    <span style={style}>{label}</span>
+  );
+}
+
+function ChipRow({ items }: { items: ChipItem[] }) {
+  const visible = items.slice(0, CHIP_DISPLAY_LIMIT);
+  const remaining = items.length - visible.length;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {visible.map((item, i) => (
+        <Chip key={item.to ?? `${item.label}-${i}`} label={item.label} to={item.to} />
+      ))}
+      {remaining > 0 && (
+        <span style={{ fontSize: "12.5px", color: colors.mutedText, alignSelf: "center", padding: "4px 2px" }}>
+          +{remaining} more
+        </span>
+      )}
+    </div>
+  );
+}
+
+function DetailSection({ title, count, extra, items }: { title: string; count: number; extra?: string; items: ChipItem[] }) {
+  if (count === 0) return null;
+  return (
+    <div style={{ marginBottom: "12px" }}>
+      <div style={{ fontSize: "13px", fontWeight: 700, color: colors.darkGreen, marginBottom: "6px" }}>
+        {title} ({count}){extra ? ` · ${extra}` : ""}
+      </div>
+      <ChipRow items={items} />
+    </div>
+  );
+}
+
 function dedupePush(list: string[], value: string) {
   if (!list.includes(value)) list.push(value);
 }
@@ -241,42 +298,32 @@ function StateOverviewPageNew() {
                       </div>
                     )}
 
-                    {entry.triFacilityNames.length > 0 && (
-                      <div style={{ fontSize: "13px", marginBottom: "8px" }}>
-                        <b style={{ color: colors.darkGreen }}>TRI facilities:</b>{" "}
-                        {entry.triFacilityIds.map((id, idx) => (
-                          <span key={id}>
-                            {idx > 0 && ", "}
-                            <Link to={`/facility/${id}`} style={{ color: colors.midGreen }}>
-                              {entry.triFacilityNames[idx]}
-                            </Link>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {entry.pbtChemicals.length > 0 && (
-                      <div style={{ fontSize: "13px", marginBottom: "8px" }}>
-                        <b style={{ color: colors.darkGreen }}>PBT/hazardous chemicals:</b> {entry.pbtChemicals.join(", ")}{" "}
-                        ({Math.round(entry.pbtTotalRelease).toLocaleString()} lbs flagged)
-                      </div>
-                    )}
-                    {entry.superfundBrownfieldNames.length > 0 && (
-                      <div style={{ fontSize: "13px", marginBottom: "8px" }}>
-                        <b style={{ color: colors.darkGreen }}>Superfund/Brownfields sites:</b>{" "}
-                        {entry.superfundBrownfieldNames.join(", ")}
-                      </div>
-                    )}
-                    {entry.significantViolationNames.length > 0 && (
-                      <div style={{ fontSize: "13px", marginBottom: "8px" }}>
-                        <b style={{ color: colors.darkGreen }}>Significant violations:</b>{" "}
-                        {entry.significantViolationNames.join(", ")}
-                      </div>
-                    )}
-                    {entry.ghgEmitterNames.length > 0 && (
-                      <div style={{ fontSize: "13px" }}>
-                        <b style={{ color: colors.darkGreen }}>Major GHG emitters:</b> {entry.ghgEmitterNames.join(", ")}
-                      </div>
-                    )}
+                    <DetailSection
+                      title="TRI facilities"
+                      count={entry.triFacilityNames.length}
+                      items={entry.triFacilityIds.map((id, idx) => ({ label: entry.triFacilityNames[idx], to: `/facility/${id}` }))}
+                    />
+                    <DetailSection
+                      title="PBT/hazardous chemicals"
+                      count={entry.pbtChemicals.length}
+                      extra={`${Math.round(entry.pbtTotalRelease).toLocaleString()} lbs flagged`}
+                      items={entry.pbtChemicals.map((c) => ({ label: c }))}
+                    />
+                    <DetailSection
+                      title="Superfund/Brownfields sites"
+                      count={entry.superfundBrownfieldNames.length}
+                      items={entry.superfundBrownfieldNames.map((n) => ({ label: n }))}
+                    />
+                    <DetailSection
+                      title="Significant violations"
+                      count={entry.significantViolationNames.length}
+                      items={entry.significantViolationNames.map((n) => ({ label: n }))}
+                    />
+                    <DetailSection
+                      title="Major GHG emitters"
+                      count={entry.ghgEmitterNames.length}
+                      items={entry.ghgEmitterNames.map((n) => ({ label: n }))}
+                    />
                   </div>
                 )}
               </div>
