@@ -18,6 +18,23 @@ def _parse_json(resp: httpx.Response):
 def _to_float(value):
     return float(value) if value is not None else None
 
+
+def _arcgis_geometry_to_paths(geometry):
+    # Normalizes ArcGIS's three geometry shapes (point/line/polygon) into one
+    # common [[ [lat, lng], ... ], ...] form the frontend map can render
+    # uniformly -- a single-point path becomes a marker, anything longer
+    # becomes a line -- without needing to know which ATTAINS sublayer
+    # (points/lines/areas) a given water body came from.
+    if not geometry:
+        return []
+    if "paths" in geometry:
+        return [[[pt[1], pt[0]] for pt in path] for path in geometry["paths"]]
+    if "rings" in geometry:
+        return [[[pt[1], pt[0]] for pt in ring] for ring in geometry["rings"]]
+    if "x" in geometry and "y" in geometry:
+        return [[[geometry["y"], geometry["x"]]]]
+    return []
+
 # EPA-designated PBT (Persistent Bioaccumulative Toxic) chemicals, by tri_chem_id.
 # Pulled from EPA's own tri.tri_chem_info reference table (pbt_ind = 1) —
 # a short, stable list that changes rarely, so it's hardcoded rather than
@@ -554,7 +571,8 @@ async def site_search(
                         "units": "esriSRUnit_StatuteMile",
                         "spatialRel": "esriSpatialRelIntersects",
                         "outFields": "assessmentunitname,isimpaired,isthreatened,on303dlist,hastmdl",
-                        "returnGeometry": "false",
+                        "outSR": 4326,
+                        "returnGeometry": "true",
                         "f": "json",
                     },
                 )
@@ -574,6 +592,7 @@ async def site_search(
                             "is_threatened": attrs.get("isthreatened") == "Y",
                             "on_303d_list": attrs.get("on303dlist") == "Y",
                             "has_tmdl": attrs.get("hastmdl") == "Y",
+                            "paths": _arcgis_geometry_to_paths(row.get("geometry")),
                         })
 
             # Layers: 0 = final critical habitat, 2 = proposed critical habitat.

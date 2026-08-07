@@ -196,6 +196,7 @@ function SiteSearchPageNew() {
               longitude={longitude}
               radius={lastSearch.radius}
               facilities={facilities}
+              waterBodies={waterBodies}
             />
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "520px", overflow: "auto", paddingRight: "4px" }}>
@@ -252,15 +253,27 @@ function SiteSearchPageNew() {
 
           {(waterBodies.length > 0 || criticalHabitats.length > 0) && (
             <div style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, borderRadius: "20px", padding: "22px 24px", marginTop: "22px" }}>
-              <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "17px", color: colors.darkGreen, marginBottom: "14px" }}>
+              <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "17px", color: colors.darkGreen, marginBottom: "6px" }}>
                 Nearby water &amp; habitat
               </div>
+              {waterBodies.length > 0 && (
+                <p style={{ fontSize: "12.5px", color: colors.mutedText, margin: "0 0 14px", maxWidth: "70ch" }}>
+                  <b>303(d)-listed</b> means the EPA has officially certified this water as failing to meet
+                  water quality standards. <b>Cleanup plan (TMDL)</b> means regulators have calculated a
+                  pollution budget and built a formal remediation plan for it — impaired water with no
+                  cleanup plan yet is the more urgent case.
+                </p>
+              )}
               <DetailSection
                 title="Impaired or threatened water bodies"
                 count={waterBodies.length}
-                items={waterBodies.map((w) => ({
-                  label: `${w.name}${w.on_303d_list ? " · 303(d)" : ""}${w.has_tmdl ? " · TMDL" : ""}`,
-                }))}
+                items={waterBodies.map((w) => {
+                  const tags = [
+                    w.on_303d_list ? "303(d)-listed" : null,
+                    w.has_tmdl ? "cleanup plan (TMDL)" : "no cleanup plan yet",
+                  ].filter((t): t is string => t !== null);
+                  return { label: `${w.name} — ${tags.join(", ")}` };
+                })}
               />
               <DetailSection
                 title="Critical habitat species"

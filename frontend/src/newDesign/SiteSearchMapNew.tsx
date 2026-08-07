@@ -1,21 +1,23 @@
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Circle, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import type { LatLngBoundsExpression } from "leaflet";
+import type { LatLngBoundsExpression, LatLngTuple } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { SiteSearchFacility } from "../types";
+import type { SiteSearchFacility, WaterBody } from "../types";
 import { PROGRAM_LABELS } from "../constants/programLabels";
 import { badgeStyle, tierForFacility } from "./badge";
 import type { BadgeTier } from "./badge";
 
 const MILES_TO_METERS = 1609.34;
 const SINGLE_PIN_FALLBACK_MILES = 2;
+const WATER_COLOR = "#1E88E5";
 
 interface SiteSearchMapNewProps {
   latitude: number | null;
   longitude: number | null;
   radius: number;
   facilities: SiteSearchFacility[];
+  waterBodies?: WaterBody[];
 }
 
 function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
@@ -26,7 +28,7 @@ function FitBounds({ bounds }: { bounds: LatLngBoundsExpression }) {
   return null;
 }
 
-function SiteSearchMapNew({ latitude, longitude, radius, facilities }: SiteSearchMapNewProps) {
+function SiteSearchMapNew({ latitude, longitude, radius, facilities, waterBodies = [] }: SiteSearchMapNewProps) {
   const pinned = useMemo(
     () =>
       facilities.filter(
@@ -113,6 +115,41 @@ function SiteSearchMapNew({ latitude, longitude, radius, facilities }: SiteSearc
             </CircleMarker>
           );
         })}
+        {waterBodies.map((water, wi) =>
+          water.paths.map((path, pi) => {
+            if (path.length === 0) return null;
+            const key = `${water.name}-${wi}-${pi}`;
+            const popup = (
+              <Popup>
+                <strong>{water.name}</strong>
+                <br />
+                {water.on_303d_list ? "303(d)-listed" : "Not on 303(d) list"} ·{" "}
+                {water.has_tmdl ? "cleanup plan (TMDL) in place" : "no cleanup plan yet"}
+              </Popup>
+            );
+            if (path.length === 1) {
+              return (
+                <CircleMarker
+                  key={key}
+                  center={path[0] as LatLngTuple}
+                  radius={6}
+                  pathOptions={{ color: WATER_COLOR, fillColor: WATER_COLOR, fillOpacity: 0.8 }}
+                >
+                  {popup}
+                </CircleMarker>
+              );
+            }
+            return (
+              <Polyline
+                key={key}
+                positions={path as LatLngTuple[]}
+                pathOptions={{ color: WATER_COLOR, weight: water.has_tmdl ? 3 : 4, dashArray: water.has_tmdl ? undefined : "6 4" }}
+              >
+                {popup}
+              </Polyline>
+            );
+          })
+        )}
       </MapContainer>
       <div
         style={{
@@ -132,11 +169,17 @@ function SiteSearchMapNew({ latitude, longitude, radius, facilities }: SiteSearc
           LEGEND
         </div>
         {(["critical", "warning", "clean"] as BadgeTier[]).map((tier) => (
-          <div key={tier} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: tier === "clean" ? 0 : "5px" }}>
+          <div key={tier} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
             <span style={{ width: "10px", height: "10px", borderRadius: "99px", background: badgeStyle(tier).dot }} />
             {tier === "critical" ? "Violation / Superfund" : tier === "warning" ? "Minor violation" : "No violation"}
           </div>
         ))}
+        {waterBodies.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ width: "14px", height: "3px", background: WATER_COLOR, display: "inline-block" }} />
+            Impaired/threatened water
+          </div>
+        )}
       </div>
     </div>
   );

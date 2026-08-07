@@ -77,6 +77,7 @@ export interface WaterBody {
   is_threatened: boolean;
   on_303d_list: boolean;
   has_tmdl: boolean;
+  paths: number[][][];
 }
 
 export interface CriticalHabitat {
