@@ -80,8 +80,8 @@ MD endpoint
 gives back MD facilities with the built query url
 """
 @app.get("/api/state/{state_abbr}")
-async def get_facilities_by_state(state_abbr: str):
-    url = f"https://data.epa.gov/dmapservice/tri.tri_facility/state_abbr/equals/{state_abbr}/1:20/json"
+async def get_facilities_by_state(state_abbr: str, limit: int = 100):
+    url = f"https://data.epa.gov/dmapservice/tri.tri_facility/state_abbr/equals/{state_abbr}/1:{limit}/json"
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         r = await client.get(url)
         return r.json()
