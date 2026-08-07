@@ -56,8 +56,21 @@ function Chip({ label, to }: ChipItem) {
   );
 }
 
+const chipToggleButtonStyle = {
+  fontSize: "12.5px",
+  fontWeight: 700,
+  color: colors.midGreen,
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  padding: "4px 6px",
+  textDecoration: "underline",
+} as const;
+
 function ChipRow({ items }: { items: ChipItem[] }) {
-  const visible = items.slice(0, CHIP_DISPLAY_LIMIT);
+  const [expanded, setExpanded] = useState(false);
+  const canCollapse = items.length > CHIP_DISPLAY_LIMIT;
+  const visible = expanded ? items : items.slice(0, CHIP_DISPLAY_LIMIT);
   const remaining = items.length - visible.length;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
@@ -65,9 +78,14 @@ function ChipRow({ items }: { items: ChipItem[] }) {
         <Chip key={item.to ?? `${item.label}-${i}`} label={item.label} to={item.to} />
       ))}
       {remaining > 0 && (
-        <span style={{ fontSize: "12.5px", color: colors.mutedText, alignSelf: "center", padding: "4px 2px" }}>
+        <button type="button" onClick={() => setExpanded(true)} style={chipToggleButtonStyle}>
           +{remaining} more
-        </span>
+        </button>
+      )}
+      {expanded && canCollapse && (
+        <button type="button" onClick={() => setExpanded(false)} style={{ ...chipToggleButtonStyle, color: colors.mutedText }}>
+          Show less
+        </button>
       )}
     </div>
   );
