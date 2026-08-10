@@ -7,6 +7,7 @@ import { badgeStyle, tierForFacility, labelForFacility } from "./badge";
 import { colors, fonts } from "./theme";
 import { DetailSection } from "./chipList";
 import Spinner from "./Spinner";
+import PageTitle from "./PageTitle";
 
 type Mode = "address" | "state";
 
@@ -52,9 +53,9 @@ function SiteSearchPageNew() {
         <span style={{ width: "7px", height: "7px", borderRadius: "99px", background: "#2FB673", display: "inline-block" }} />
         ASTM Phase I radius search · live EPA data
       </div>
-      <h1 style={{ fontFamily: fonts.heading, fontSize: "40px", fontWeight: 800, color: colors.darkGreen, maxWidth: "18ch" }}>
+      <PageTitle icon="/landing-icons/siteSearch.png" fontSize="40px" maxWidth="18ch">
         Know what's in the ground before you break it.
-      </h1>
+      </PageTitle>
       <p style={{ fontSize: "16px", color: "#4A574D", maxWidth: "56ch", margin: "14px 0 24px" }}>
         Search every EPA-regulated facility near a property — across TRI, RCRA, Clean Air &amp;
         Water, Superfund and Brownfields — in one look.

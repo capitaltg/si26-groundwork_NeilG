@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useFacilitySearch } from "../hooks/useFacilitySearch";
 import { colors, fonts } from "./theme";
 import Spinner from "./Spinner";
+import PageTitle from "./PageTitle";
 
 function SearchPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -11,9 +12,7 @@ function SearchPageNew() {
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
-      <h1 style={{ fontFamily: fonts.heading, fontSize: "36px", fontWeight: 800, color: colors.darkGreen }}>
-        TRI Facilities
-      </h1>
+      <PageTitle icon="/landing-icons/Search.png">TRI Facilities</PageTitle>
       <p style={{ fontSize: "16px", color: "#4A574D", margin: "12px 0 22px", maxWidth: "54ch" }}>
         Browse Toxics Release Inventory reporters by state. Select a facility for its full release
         history and compliance record.

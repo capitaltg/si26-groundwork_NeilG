@@ -5,6 +5,7 @@ import { colors, fonts } from "./theme";
 import EmissionsLineChart from "./EmissionsLineChart";
 import { computeTrendFlag } from "./emissionsTrend";
 import Spinner from "./Spinner";
+import PageTitle from "./PageTitle";
 
 function EmissionsCenterPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -15,9 +16,7 @@ function EmissionsCenterPageNew() {
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
-      <h1 style={{ fontFamily: fonts.heading, fontSize: "36px", fontWeight: 800, color: colors.darkGreen }}>
-        Emissions Center
-      </h1>
+      <PageTitle icon="/landing-icons/EmissionsCenter.png">Emissions Center</PageTitle>
       <p style={{ fontSize: "16px", color: "#4A574D", margin: "12px 0 26px", maxWidth: "56ch" }}>
         Top greenhouse gas emitters by state, from EPA's Greenhouse Gas Reporting Program
         (GHGRP) — total CO2-equivalent emissions across all reported gas types, for the most

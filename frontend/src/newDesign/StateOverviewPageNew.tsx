@@ -12,6 +12,7 @@ import { computeTownRiskScore } from "./townRiskScore";
 import type { RiskGrade, TownRiskFactors } from "./townRiskScore";
 import { DetailSection } from "./chipList";
 import Spinner from "./Spinner";
+import PageTitle from "./PageTitle";
 
 interface TownEntry extends TownRiskFactors {
   triFacilityIds: string[];
@@ -194,9 +195,7 @@ function StateOverviewPageNew() {
 
   return (
     <div style={{ fontFamily: fonts.body, background: colors.background, minHeight: "100vh", padding: "28px" }}>
-      <h1 style={{ fontFamily: fonts.heading, fontSize: "36px", fontWeight: 800, color: colors.darkGreen }}>
-        State Overview
-      </h1>
+      <PageTitle icon="/landing-icons/StateOverview.png">State Overview</PageTitle>
       <p style={{ fontSize: "16px", color: "#4A574D", margin: "12px 0 26px", maxWidth: "62ch" }}>
         Every town in a state, ranked by a composite environmental risk score built from TRI chemical
         releases, EPA-flagged PBT/hazardous chemicals, Superfund and Brownfields sites, significant

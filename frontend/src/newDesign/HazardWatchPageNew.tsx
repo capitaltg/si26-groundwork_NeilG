@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useHazardWatch } from "../hooks/useHazardWatch";
 import { colors, fonts } from "./theme";
 import Spinner from "./Spinner";
+import PageTitle from "./PageTitle";
 
 function HazardWatchPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -29,9 +30,7 @@ function HazardWatchPageNew() {
       >
         ⚠ Persistent Bioaccumulative Toxics
       </div>
-      <h1 style={{ fontFamily: fonts.heading, fontSize: "36px", fontWeight: 800, color: colors.darkGreen }}>
-        Hazard Watch
-      </h1>
+      <PageTitle icon="/landing-icons/hazardWatch.png">Hazard Watch</PageTitle>
       <p style={{ fontSize: "16px", color: "#4A574D", margin: "12px 0 26px", maxWidth: "56ch" }}>
         Every release of an EPA-designated PBT chemical in {submittedState} — the substances that
         don't break down and accumulate up the food chain. Worst offenders first.
