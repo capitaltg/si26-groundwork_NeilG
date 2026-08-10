@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import sqlite3
@@ -519,67 +520,114 @@ async def site_search(
         else:
             return {"latitude": None, "longitude": None, "facilities": [], "water_bodies": [], "critical_habitats": []}
 
-        search_resp = await client.get(
-            "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
-            params=echo_params,
-        )
-        query_id = _parse_json(search_resp).get("Results", {}).get("QueryID")
+        # ECHO, FRS, and Brownfields don't depend on each other's results, so
+        # they run concurrently rather than one after another -- three
+        # independent, occasionally-slow-or-flaky government APIs chained
+        # sequentially meant total latency was their SUM, and one bad moment
+        # from any single one used to fail the entire combined search with
+        # no fallback. Each fetch below catches its own errors and degrades
+        # to "no data from this source" instead of taking down the others.
+        async def fetch_echo():
+            try:
+                search_resp = await client.get(
+                    "https://echodata.epa.gov/echo/echo_rest_services.get_facilities",
+                    params=echo_params,
+                )
+                query_id = _parse_json(search_resp).get("Results", {}).get("QueryID")
+                if not query_id:
+                    return []
+                results_resp = await client.get(
+                    "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
+                    params={"output": "JSON", "qid": query_id, "pagelength": 100},
+                )
+                return _parse_json(results_resp).get("Results", {}).get("Facilities") or []
+            except (httpx.HTTPError, json.JSONDecodeError):
+                return []
 
-        echo_rows = []
-        if query_id:
-            results_resp = await client.get(
-                "https://echodata.epa.gov/echo/echo_rest_services.get_qid",
-                params={"output": "JSON", "qid": query_id, "pagelength": 100},
-            )
-            echo_rows = _parse_json(results_resp).get("Results", {}).get("Facilities") or []
+        async def fetch_superfund():
+            try:
+                resp = await client.get(
+                    "https://ofmpub.epa.gov/frs_public2/frs_rest_services.get_facilities",
+                    params=superfund_params,
+                )
+                # FRS returns malformed JSON for some error responses (e.g. a
+                # trailing comma) -- treat an unparseable response as "no
+                # data" rather than failing the whole combined search.
+                results = _parse_json(resp).get("Results", {})
+            except (httpx.HTTPError, json.JSONDecodeError):
+                return []
+            if results.get("Error"):
+                return []
+            return results.get("FRSFacility") or []
 
-        superfund_resp = await client.get(
-            "https://ofmpub.epa.gov/frs_public2/frs_rest_services.get_facilities",
-            params=superfund_params,
-        )
-        try:
-            superfund_results = _parse_json(superfund_resp).get("Results", {})
-        except json.JSONDecodeError:
-            # FRS returns malformed JSON for some error responses (e.g. a
-            # trailing comma) -- treat an unparseable response as "no data"
-            # rather than failing the whole combined search.
-            superfund_results = {}
-        superfund_rows = superfund_results.get("FRSFacility") or []
-        if superfund_results.get("Error"):
-            superfund_rows = []
+        async def fetch_brownfields():
+            try:
+                resp = await client.get(
+                    "https://geodata.epa.gov/arcgis/rest/services/OEI/FRS_INTERESTS/MapServer/0/query",
+                    params=brownfields_params,
+                )
+                return _parse_json(resp).get("features") or []
+            except (httpx.HTTPError, json.JSONDecodeError):
+                return []
 
-        brownfields_resp = await client.get(
-            "https://geodata.epa.gov/arcgis/rest/services/OEI/FRS_INTERESTS/MapServer/0/query",
-            params=brownfields_params,
+        echo_rows, superfund_rows, brownfields_rows = await asyncio.gather(
+            fetch_echo(), fetch_superfund(), fetch_brownfields()
         )
-        brownfields_rows = _parse_json(brownfields_resp).get("features") or []
 
         # Water/habitat overlap only makes sense for a specific point, not a
         # whole state, so these two only run in address mode.
         water_bodies = []
         critical_habitats = []
         if latitude is not None and longitude is not None:
-            # Layers: 0 = assessment points (e.g. beaches), 1 = lines (rivers/streams), 2 = areas (lakes/bays).
-            for layer in (0, 1, 2):
-                resp = await client.get(
-                    f"https://gispub.epa.gov/arcgis/rest/services/OW/ATTAINS_Assessment/MapServer/{layer}/query",
-                    params={
-                        "geometry": f"{longitude},{latitude}",
-                        "geometryType": "esriGeometryPoint",
-                        "inSR": 4326,
-                        "distance": radius,
-                        "units": "esriSRUnit_StatuteMile",
-                        "spatialRel": "esriSpatialRelIntersects",
-                        "outFields": "assessmentunitname,isimpaired,isthreatened,on303dlist,hastmdl",
-                        "outSR": 4326,
-                        "returnGeometry": "true",
-                        "f": "json",
-                    },
-                )
+            async def fetch_attains_layer(layer):
                 try:
-                    rows = _parse_json(resp).get("features") or []
-                except json.JSONDecodeError:
-                    rows = []
+                    resp = await client.get(
+                        f"https://gispub.epa.gov/arcgis/rest/services/OW/ATTAINS_Assessment/MapServer/{layer}/query",
+                        params={
+                            "geometry": f"{longitude},{latitude}",
+                            "geometryType": "esriGeometryPoint",
+                            "inSR": 4326,
+                            "distance": radius,
+                            "units": "esriSRUnit_StatuteMile",
+                            "spatialRel": "esriSpatialRelIntersects",
+                            "outFields": "assessmentunitname,isimpaired,isthreatened,on303dlist,hastmdl",
+                            "outSR": 4326,
+                            "returnGeometry": "true",
+                            "f": "json",
+                        },
+                    )
+                    return _parse_json(resp).get("features") or []
+                except (httpx.HTTPError, json.JSONDecodeError):
+                    return []
+
+            async def fetch_habitat_layer(layer):
+                try:
+                    resp = await client.get(
+                        f"https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/{layer}/query",
+                        params={
+                            "geometry": f"{longitude},{latitude}",
+                            "geometryType": "esriGeometryPoint",
+                            "inSR": 4326,
+                            "distance": radius,
+                            "units": "esriSRUnit_StatuteMile",
+                            "spatialRel": "esriSpatialRelIntersects",
+                            "outFields": "comname,sciname,status",
+                            "returnGeometry": "false",
+                            "f": "json",
+                        },
+                    )
+                    return _parse_json(resp).get("features") or []
+                except (httpx.HTTPError, json.JSONDecodeError):
+                    return []
+
+            # ATTAINS layers: 0 = assessment points (e.g. beaches), 1 = lines (rivers/streams), 2 = areas (lakes/bays).
+            # Habitat layers: 0 = final critical habitat, 2 = proposed critical habitat.
+            attains_results, habitat_results = await asyncio.gather(
+                asyncio.gather(*(fetch_attains_layer(layer) for layer in (0, 1, 2))),
+                asyncio.gather(*(fetch_habitat_layer(layer) for layer in (0, 2))),
+            )
+
+            for rows in attains_results:
                 for row in rows:
                     attrs = row.get("attributes", {})
                     name = attrs.get("assessmentunitname")
@@ -595,26 +643,7 @@ async def site_search(
                             "paths": _arcgis_geometry_to_paths(row.get("geometry")),
                         })
 
-            # Layers: 0 = final critical habitat, 2 = proposed critical habitat.
-            for layer in (0, 2):
-                resp = await client.get(
-                    f"https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/{layer}/query",
-                    params={
-                        "geometry": f"{longitude},{latitude}",
-                        "geometryType": "esriGeometryPoint",
-                        "inSR": 4326,
-                        "distance": radius,
-                        "units": "esriSRUnit_StatuteMile",
-                        "spatialRel": "esriSpatialRelIntersects",
-                        "outFields": "comname,sciname,status",
-                        "returnGeometry": "false",
-                        "f": "json",
-                    },
-                )
-                try:
-                    rows = _parse_json(resp).get("features") or []
-                except json.JSONDecodeError:
-                    rows = []
+            for rows in habitat_results:
                 for row in rows:
                     attrs = row.get("attributes", {})
                     if not attrs.get("comname"):
