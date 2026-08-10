@@ -4,6 +4,7 @@ import { useGhgEmitterHistory } from "../hooks/useGhgEmitterHistory";
 import { colors, fonts } from "./theme";
 import EmissionsLineChart from "./EmissionsLineChart";
 import { computeTrendFlag } from "./emissionsTrend";
+import Spinner from "./Spinner";
 
 function EmissionsCenterPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -60,7 +61,7 @@ function EmissionsCenterPageNew() {
         </button>
       </div>
 
-      {loading && <p>Loading emissions data...</p>}
+      {loading && <Spinner />}
       {error && <p style={{ color: colors.dangerText }}>Error loading emissions data: {error}</p>}
       {!loading && !error && emitters.length === 0 && (
         <p>No GHG emissions data found for "{submittedState}".</p>
@@ -97,7 +98,7 @@ function EmissionsCenterPageNew() {
                 </div>
                 {isExpanded && (
                   <div style={{ padding: "6px 22px 22px", background: "#F5F8F1" }}>
-                    {historyLoading && <p style={{ fontSize: "13px", color: colors.mutedText }}>Loading history...</p>}
+                    {historyLoading && <Spinner size={20} inline />}
                     {historyError && (
                       <p style={{ fontSize: "13px", color: colors.dangerText }}>Error loading history: {historyError}</p>
                     )}

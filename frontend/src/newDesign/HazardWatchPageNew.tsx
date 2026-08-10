@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useHazardWatch } from "../hooks/useHazardWatch";
 import { colors, fonts } from "./theme";
+import Spinner from "./Spinner";
 
 function HazardWatchPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -73,7 +74,7 @@ function HazardWatchPageNew() {
         </button>
       </div>
 
-      {loading && <p>Loading hazardous releases...</p>}
+      {loading && <Spinner />}
       {error && <p style={{ color: colors.dangerText }}>Error loading hazardous releases: {error}</p>}
       {!loading && !error && rows.length === 0 && (
         <p>No hazardous releases found for "{submittedState}".</p>

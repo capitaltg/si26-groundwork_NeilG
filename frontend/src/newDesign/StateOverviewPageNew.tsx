@@ -9,6 +9,7 @@ import type { BadgeTier } from "./badge";
 import { computeTownRiskScore } from "./townRiskScore";
 import type { RiskGrade, TownRiskFactors } from "./townRiskScore";
 import { DetailSection } from "./chipList";
+import Spinner from "./Spinner";
 
 interface TownEntry extends TownRiskFactors {
   triFacilityIds: string[];
@@ -169,13 +170,7 @@ function StateOverviewPageNew() {
         </button>
       </div>
 
-      {loading && (
-        <p>
-          Loading state data across TRI, Hazard Watch, Site Search, and GHG sources — this pulls up to 750
-          TRI facilities per state directly from EPA's live APIs, so it can take 10-20 seconds. Very large
-          states (e.g. CA, TX) may exceed that 750-facility sample.
-        </p>
-      )}
+      {loading && <Spinner />}
       {error && <p style={{ color: colors.dangerText }}>Error loading data: {error}</p>}
       {!loading && !error && towns.length === 0 && <p>No town-level data found for "{submittedState}".</p>}
 

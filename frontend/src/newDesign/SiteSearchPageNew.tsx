@@ -6,6 +6,7 @@ import SiteSearchMapNew from "./SiteSearchMapNew";
 import { badgeStyle, tierForFacility, labelForFacility } from "./badge";
 import { colors, fonts } from "./theme";
 import { DetailSection } from "./chipList";
+import Spinner from "./Spinner";
 
 type Mode = "address" | "state";
 
@@ -161,7 +162,7 @@ function SiteSearchPageNew() {
         </div>
       </form>
 
-      {loading && <p style={{ marginTop: "20px" }}>Searching...</p>}
+      {loading && <Spinner />}
       {error && <p style={{ marginTop: "20px", color: colors.dangerText }}>Error: {error}</p>}
       {!loading && !error && searched && facilities.length === 0 && (
         <div style={{ background: colors.cardBackground, border: "1px dashed #CBD4C2", borderRadius: "20px", padding: "32px 24px", textAlign: "center", marginTop: "24px" }}>
