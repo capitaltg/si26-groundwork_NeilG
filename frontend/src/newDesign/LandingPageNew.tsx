@@ -4,26 +4,31 @@ import { colors, fonts } from "./theme";
 const SECTIONS = [
   {
     to: "/search",
+    icon: "/landing-icons/Search.png",
     title: "Search",
     description: "Browse EPA TRI-registered facilities by state and drill into any one's full release and compliance history.",
   },
   {
     to: "/hazard-watch",
+    icon: "/landing-icons/hazardWatch.png",
     title: "Hazard Watch",
     description: "The worst PBT and hazardous chemical releases in a state, ranked worst-first.",
   },
   {
     to: "/site-search",
+    icon: "/landing-icons/siteSearch.png",
     title: "Site Search",
     description: "Every EPA-regulated facility near an address or across a state — TRI, RCRA, Clean Air & Water, Superfund, Brownfields — plus nearby impaired water bodies and critical habitat.",
   },
   {
     to: "/emissions-center",
+    icon: "/landing-icons/EmissionsCenter.png",
     title: "Emissions Center",
     description: "Greenhouse gas emissions leaderboard by state, with per-facility multi-year trends and automatic flagging of substantial increases.",
   },
   {
     to: "/state-overview",
+    icon: "/landing-icons/StateOverview.png",
     title: "State Overview",
     description: "Every town in a state ranked by a composite environmental risk score, with a full report card for each.",
   },
@@ -67,6 +72,16 @@ function LandingPageNew() {
               color: colors.bodyText,
             }}
           >
+            <img
+              src={section.icon}
+              alt=""
+              width={48}
+              height={48}
+              style={{ display: "block", marginBottom: "14px" }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
             <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "19px", color: colors.darkGreen }}>
               {section.title}
             </div>
