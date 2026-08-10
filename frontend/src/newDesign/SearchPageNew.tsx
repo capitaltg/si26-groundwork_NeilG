@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useFacilitySearch } from "../hooks/useFacilitySearch";
 import { colors, fonts } from "./theme";
+import Spinner from "./Spinner";
 
 function SearchPageNew() {
   const [inputValue, setInputValue] = useState("MD");
@@ -57,7 +58,7 @@ function SearchPageNew() {
         </span>
       </div>
 
-      {loading && <p>Loading facilities...</p>}
+      {loading && <Spinner />}
       {error && <p style={{ color: colors.dangerText }}>Error loading facilities: {error}</p>}
       {!loading && !error && facilities.length === 0 && (
         <p>No facilities found for "{submittedState}".</p>

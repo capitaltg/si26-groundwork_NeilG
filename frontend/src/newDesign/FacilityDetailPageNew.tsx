@@ -7,6 +7,7 @@ import { deriveBadge } from "./badge";
 import { computeReleaseKpis } from "./releaseKpis";
 import { formatRcraLine } from "./rcra";
 import FacilitySummaryPrint from "./FacilitySummaryPrint";
+import Spinner from "./Spinner";
 
 const SPIKE_THRESHOLD = 0.5;
 
@@ -62,7 +63,11 @@ function FacilityDetailPageNew() {
   const latestYearKpis = useMemo(() => computeReleaseKpis(releases), [releases]);
 
   if (releasesLoading || complianceLoading) {
-    return <p style={{ fontFamily: fonts.body, padding: "24px" }}>Loading...</p>;
+    return (
+      <div style={{ background: colors.background, minHeight: "100vh" }}>
+        <Spinner />
+      </div>
+    );
   }
 
   if (releasesError) {
