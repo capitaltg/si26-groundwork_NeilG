@@ -43,18 +43,35 @@ function LandingPageNew() {
           borderRadius: "28px",
           padding: "48px 40px",
           color: "#EAF1E6",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "32px",
+          flexWrap: "wrap",
         }}
       >
-        <div style={{ fontSize: "13px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9FC7AE", fontWeight: 600 }}>
-          EPA environmental data explorer
+        <div style={{ flex: "1 1 380px" }}>
+          <div style={{ fontSize: "13px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9FC7AE", fontWeight: 600 }}>
+            EPA environmental data explorer
+          </div>
+          <h1 style={{ fontFamily: fonts.heading, fontSize: "42px", fontWeight: 800, marginTop: "10px", color: "#FFFFFF", maxWidth: "26ch" }}>
+            One place to see a facility's, a town's, or a state's environmental footprint.
+          </h1>
+          <p style={{ fontSize: "16px", color: "#B8CFBE", marginTop: "14px", maxWidth: "64ch" }}>
+            Pulls live from EPA's TRI, RCRA, GHGRP, ECHO, ATTAINS, and USFWS data, plus Superfund and
+            Brownfields site records — combined into the five tools below.
+          </p>
         </div>
-        <h1 style={{ fontFamily: fonts.heading, fontSize: "42px", fontWeight: 800, marginTop: "10px", color: "#FFFFFF", maxWidth: "26ch" }}>
-          One place to see a facility's, a town's, or a state's environmental footprint.
-        </h1>
-        <p style={{ fontSize: "16px", color: "#B8CFBE", marginTop: "14px", maxWidth: "64ch" }}>
-          Pulls live from EPA's TRI, RCRA, GHGRP, ECHO, ATTAINS, and USFWS data, plus Superfund and
-          Brownfields site records — combined into the five tools below.
-        </p>
+        <div style={{ width: "160px", height: "160px", borderRadius: "99px", overflow: "hidden", flexShrink: 0 }}>
+          <img
+            src="/LOGO.png"
+            alt=""
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+            onError={(e) => {
+              (e.currentTarget.parentElement as HTMLElement).style.display = "none";
+            }}
+          />
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "18px", marginTop: "24px" }}>
