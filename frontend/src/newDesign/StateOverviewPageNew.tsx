@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useFacilitySearch } from "../hooks/useFacilitySearch";
 import { useHazardWatch } from "../hooks/useHazardWatch";
 import { useGhgEmitters } from "../hooks/useGhgEmitters";
@@ -31,6 +33,74 @@ function gradeTier(grade: RiskGrade): BadgeTier {
 
 function dedupePush(list: string[], value: string) {
   if (!list.includes(value)) list.push(value);
+}
+
+function ScoreBadge({ grade, score }: { grade: RiskGrade; score: number }) {
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+  const badge = badgeStyle(gradeTier(grade));
+
+  function handleEnter(e: MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPos({ top: rect.bottom + 8, left: Math.max(8, rect.right - 280) });
+  }
+
+  return (
+    <div
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setTooltipPos(null)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "8px",
+        background: badge.bg,
+        color: badge.color,
+        padding: "6px 14px",
+        borderRadius: "999px",
+        fontSize: "13px",
+        fontWeight: 800,
+        cursor: "help",
+      }}
+    >
+      {grade} · {score}
+      {tooltipPos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: tooltipPos.top,
+              left: tooltipPos.left,
+              width: "280px",
+              background: colors.cardBackground,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: "14px",
+              padding: "14px 16px",
+              fontSize: "12px",
+              lineHeight: "1.6",
+              color: colors.bodyText,
+              textAlign: "left",
+              boxShadow: "0 12px 28px -10px rgba(0,0,0,0.3)",
+              zIndex: 1000,
+            }}
+          >
+            <b style={{ color: colors.darkGreen }}>How this score works</b>
+            <div style={{ marginTop: "6px" }}>Starts at 100 points, then loses:</div>
+            <ul style={{ margin: "4px 0 6px", paddingLeft: "18px" }}>
+              <li>3 pts per TRI facility (max 21)</li>
+              <li>10 pts per PBT/hazardous chemical (max 40)</li>
+              <li>20 pts per Superfund/Brownfields site (max 40)</li>
+              <li>15 pts per significant violation (max 30)</li>
+              <li>10 pts per major GHG emitter (max 20)</li>
+            </ul>
+            <div>Grades: A ≥90 · B ≥75 · C ≥60 · D ≥40 · F below that.</div>
+            <div style={{ marginTop: "6px", color: colors.mutedText }}>
+              Towns are ranked worst-first — #1 is the riskiest, not the safest.
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
 }
 
 function StateOverviewPageNew() {
@@ -178,7 +248,6 @@ function StateOverviewPageNew() {
         <div style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, borderRadius: "24px", overflow: "hidden" }}>
           {towns.map(({ entry, score }, i) => {
             const isExpanded = expandedCity === entry.displayCity;
-            const badge = badgeStyle(gradeTier(score.grade));
             return (
               <div key={entry.displayCity} style={{ borderBottom: i === towns.length - 1 ? "none" : "1px solid #EEF0E7" }}>
                 <div
@@ -199,22 +268,7 @@ function StateOverviewPageNew() {
                   <div style={{ fontFamily: fonts.heading, fontWeight: 700, fontSize: "16px", color: colors.darkGreen }}>
                     {entry.displayCity}, {submittedState}
                   </div>
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      background: badge.bg,
-                      color: badge.color,
-                      padding: "6px 14px",
-                      borderRadius: "999px",
-                      fontSize: "13px",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {score.grade} · {score.score}
-                  </div>
+                  <ScoreBadge grade={score.grade} score={score.score} />
                 </div>
                 {isExpanded && (
                   <div style={{ padding: "6px 22px 22px", background: "#F5F8F1" }}>
