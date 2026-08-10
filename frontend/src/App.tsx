@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
+import LandingPageNew from "./newDesign/LandingPageNew";
 import FacilityDetailPageNew from "./newDesign/FacilityDetailPageNew";
 import SiteSearchPageNew from "./newDesign/SiteSearchPageNew";
 import SearchPageNew from "./newDesign/SearchPageNew";
@@ -12,7 +13,8 @@ function App() {
     <>
       <NavBar />
       <Routes>
-        <Route path="/" element={<SearchPageNew />} />
+        <Route path="/" element={<LandingPageNew />} />
+        <Route path="/search" element={<SearchPageNew />} />
         <Route path="/facility/:id" element={<FacilityDetailPageNew />} />
         <Route path="/hazard-watch" element={<HazardWatchPageNew />} />
         <Route path="/site-search" element={<SiteSearchPageNew />} />

@@ -1,8 +1,8 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { colors, fonts } from "../newDesign/theme";
 
 const NAV_LINKS = [
-  { to: "/", label: "Search" },
+  { to: "/search", label: "Search" },
   { to: "/hazard-watch", label: "Hazard Watch" },
   { to: "/site-search", label: "Site Search" },
   { to: "/emissions-center", label: "Emissions Center" },
@@ -22,9 +22,12 @@ function NavBar() {
         flexWrap: "wrap",
       }}
     >
-      <span style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "18px", color: "#FFFFFF" }}>
+      <Link
+        to="/"
+        style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "18px", color: "#FFFFFF", textDecoration: "none" }}
+      >
         TRI Facility Explorer
-      </span>
+      </Link>
       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
         {NAV_LINKS.map((link) => (
           <NavLink
