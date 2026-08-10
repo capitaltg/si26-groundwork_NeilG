@@ -75,9 +75,9 @@ function LandingPageNew() {
             <img
               src={section.icon}
               alt=""
-              width={48}
-              height={48}
-              style={{ display: "block", marginBottom: "14px" }}
+              width={96}
+              height={96}
+              style={{ display: "block", marginBottom: "18px" }}
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
