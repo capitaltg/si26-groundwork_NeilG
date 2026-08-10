@@ -24,9 +24,21 @@ function NavBar() {
     >
       <Link
         to="/"
-        style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "18px", color: "#FFFFFF", textDecoration: "none" }}
+        style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}
       >
-        TRI Facility Explorer
+        <img
+          src="/GroundWorkLogo.png"
+          alt=""
+          width={28}
+          height={28}
+          style={{ display: "block" }}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+        <span style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "18px", color: "#FFFFFF" }}>
+          Groundwork
+        </span>
       </Link>
       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
         {NAV_LINKS.map((link) => (
