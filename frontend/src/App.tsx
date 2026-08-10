@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import SearchPage from "./pages/SearchPage";
@@ -13,45 +14,80 @@ import EmissionsCenterPageNew from "./newDesign/EmissionsCenterPageNew";
 import StateOverviewPageNew from "./newDesign/StateOverviewPageNew";
 import { useDesignTheme } from "./newDesign/DesignThemeContext";
 
+// New Design pages set their own full-viewport background/padding, so they
+// render full-bleed; Classic pages rely on Bootstrap's container for margins
+// and max-width, so only they get wrapped.
+function ClassicContainer({ children }: { children: ReactNode }) {
+  return <div className="container">{children}</div>;
+}
+
 function FacilityDetailRoute() {
   const { theme } = useDesignTheme();
-  return theme === "new" ? <FacilityDetailPageNew /> : <FacilityDetailPage />;
+  return theme === "new" ? (
+    <FacilityDetailPageNew />
+  ) : (
+    <ClassicContainer>
+      <FacilityDetailPage />
+    </ClassicContainer>
+  );
 }
 
 function SiteSearchRoute() {
   const { theme } = useDesignTheme();
-  return theme === "new" ? <SiteSearchPageNew /> : <SiteSearchPage />;
+  return theme === "new" ? (
+    <SiteSearchPageNew />
+  ) : (
+    <ClassicContainer>
+      <SiteSearchPage />
+    </ClassicContainer>
+  );
 }
 
 function SearchRoute() {
   const { theme } = useDesignTheme();
-  return theme === "new" ? <SearchPageNew /> : <SearchPage />;
+  return theme === "new" ? (
+    <SearchPageNew />
+  ) : (
+    <ClassicContainer>
+      <SearchPage />
+    </ClassicContainer>
+  );
 }
 
 function HazardWatchRoute() {
   const { theme } = useDesignTheme();
-  return theme === "new" ? <HazardWatchPageNew /> : <HazardWatchPage />;
+  return theme === "new" ? (
+    <HazardWatchPageNew />
+  ) : (
+    <ClassicContainer>
+      <HazardWatchPage />
+    </ClassicContainer>
+  );
 }
 
 function EmissionsCenterRoute() {
   const { theme } = useDesignTheme();
-  return theme === "new" ? <EmissionsCenterPageNew /> : <EmissionsCenterPage />;
+  return theme === "new" ? (
+    <EmissionsCenterPageNew />
+  ) : (
+    <ClassicContainer>
+      <EmissionsCenterPage />
+    </ClassicContainer>
+  );
 }
 
 function App() {
   return (
     <>
       <NavBar />
-      <div className="container">
-        <Routes>
-          <Route path="/" element={<SearchRoute />} />
-          <Route path="/facility/:id" element={<FacilityDetailRoute />} />
-          <Route path="/hazard-watch" element={<HazardWatchRoute />} />
-          <Route path="/site-search" element={<SiteSearchRoute />} />
-          <Route path="/emissions-center" element={<EmissionsCenterRoute />} />
-          <Route path="/state-overview" element={<StateOverviewPageNew />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<SearchRoute />} />
+        <Route path="/facility/:id" element={<FacilityDetailRoute />} />
+        <Route path="/hazard-watch" element={<HazardWatchRoute />} />
+        <Route path="/site-search" element={<SiteSearchRoute />} />
+        <Route path="/emissions-center" element={<EmissionsCenterRoute />} />
+        <Route path="/state-overview" element={<StateOverviewPageNew />} />
+      </Routes>
     </>
   );
 }
