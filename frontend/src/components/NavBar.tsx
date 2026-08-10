@@ -26,16 +26,16 @@ function NavBar() {
         to="/"
         style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}
       >
-        <img
-          src="/GroundWorkLogo.png"
-          alt=""
-          width={28}
-          height={28}
-          style={{ display: "block" }}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
-        />
+        <div style={{ width: "36px", height: "36px", borderRadius: "99px", overflow: "hidden", flexShrink: 0 }}>
+          <img
+            src="/LOGO.png"
+            alt=""
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+            onError={(e) => {
+              (e.currentTarget.parentElement as HTMLElement).style.display = "none";
+            }}
+          />
+        </div>
         <span style={{ fontFamily: fonts.heading, fontWeight: 800, fontSize: "18px", color: "#FFFFFF" }}>
           Groundwork
         </span>
