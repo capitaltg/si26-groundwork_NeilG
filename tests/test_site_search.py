@@ -45,9 +45,16 @@ class SiteSearchCoordinatesTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self._real_client = main.httpx.AsyncClient
         main.httpx.AsyncClient = FakeClient
+        # The demo-day response cache (md_demo_cache.db) is a real file that
+        # may exist on disk with real MD data -- without this, a cache hit
+        # would silently bypass FakeClient and return that real data instead
+        # of the fixture data these tests assert on.
+        self._real_cache_get = main._cache_get
+        main._cache_get = lambda key: None
 
     def tearDown(self):
         main.httpx.AsyncClient = self._real_client
+        main._cache_get = self._real_cache_get
 
     async def test_superfund_facility_includes_coordinates(self):
         result = await main.site_search(state="MD", radius=1, limit=50)

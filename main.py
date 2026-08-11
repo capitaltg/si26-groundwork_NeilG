@@ -20,6 +20,57 @@ def _to_float(value):
     return float(value) if value is not None else None
 
 
+def _safe_json(resp, default=None):
+    # EPA's APIs occasionally return an empty or malformed body (seen in
+    # practice after a burst of rapid requests) -- .json() raises on that,
+    # which used to crash the whole endpoint instead of degrading gracefully.
+    try:
+        return resp.json()
+    except json.JSONDecodeError:
+        return {} if default is None else default
+
+
+# Pre-warmed response cache for demo reliability -- populated once by
+# sync_md_cache.py, read-only from the live endpoints below. Endpoints check
+# this first and fall back to their normal live EPA/USFWS calls on a miss, so
+# an unpopulated or partially-populated cache never breaks anything; it just
+# means that particular request stays live instead of being instant.
+CACHE_DB_PATH = os.path.join(os.path.dirname(__file__), "md_demo_cache.db")
+
+
+def _cache_init():
+    conn = sqlite3.connect(CACHE_DB_PATH)
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS response_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _cache_get(key):
+    if not os.path.exists(CACHE_DB_PATH):
+        return None
+    conn = sqlite3.connect(CACHE_DB_PATH)
+    try:
+        row = conn.execute("SELECT value FROM response_cache WHERE key = ?", (key,)).fetchone()
+    finally:
+        conn.close()
+    return json.loads(row[0]) if row else None
+
+
+def _cache_set(key, value):
+    _cache_init()
+    conn = sqlite3.connect(CACHE_DB_PATH)
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO response_cache (key, value) VALUES (?, ?)",
+            (key, json.dumps(value)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _arcgis_geometry_to_paths(geometry):
     # Normalizes ArcGIS's three geometry shapes (point/line/polygon) into one
     # common [[ [lat, lng], ... ], ...] form the frontend map can render
@@ -99,6 +150,10 @@ gives back MD facilities with the built query url
 """
 @app.get("/api/state/{state_abbr}")
 async def get_facilities_by_state(state_abbr: str, limit: int = 100):
+    cache_key = f"state:{state_abbr.upper()}:{limit}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
     url = f"https://data.epa.gov/dmapservice/tri.tri_facility/state_abbr/equals/{state_abbr}/1:{limit}/json"
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         r = await client.get(url)
@@ -112,6 +167,11 @@ tri_reporting_form joined to tri_form_totals (release qtys) joined to tri_facili
 """
 @app.get("/api/facility/{facility_id}/releases")
 async def get_facility_releases(facility_id: str):
+    cache_key = f"releases:{facility_id}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     url = (
         f"https://data.epa.gov/dmapservice/tri.tri_reporting_form"
         f"/tri_facility_id/equals/{facility_id}"
@@ -122,9 +182,12 @@ async def get_facility_releases(facility_id: str):
         f"/sort/tri.tri_reporting_form.reporting_year:desc"
         f"/1:50/json"
     )
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        r = await client.get(url)
-        data = r.json()
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            r = await client.get(url)
+            data = _safe_json(r, default=[])
+    except httpx.HTTPError:
+        data = []
 
     first = data[0] if data else {}
 
@@ -218,6 +281,11 @@ type reported that year, sorted worst first.
 """
 @app.get("/api/state/{state_abbr}/ghg-emitters")
 async def get_ghg_emitters(state_abbr: str):
+    cache_key = f"ghg-emitters:{state_abbr.upper()}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         latest_year_resp = await client.get(
             f"https://data.epa.gov/dmapservice/ghg.rlps_ghg_emitter_gas"
@@ -268,6 +336,11 @@ Emissions Center's per-facility trend chart.
 """
 @app.get("/api/ghg-emitter/{facility_id}/history")
 async def get_ghg_emitter_history(facility_id: int):
+    cache_key = f"ghg-history:{facility_id}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     url = (
         f"https://data.epa.gov/dmapservice/ghg.rlps_ghg_emitter_gas"
         f"/facility_id/equals/{facility_id}"
@@ -315,51 +388,61 @@ carry, confirmed by comparing the two directly against a known SQG facility.
 """
 @app.get("/api/facility/{facility_id}/compliance")
 async def get_facility_compliance(facility_id: str):
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        facility_url = (
-            f"https://data.epa.gov/dmapservice/tri.tri_facility"
-            f"/tri_facility_id/equals/{facility_id}/1:1/json"
-        )
-        facility_resp = await client.get(facility_url)
-        facility_data = facility_resp.json()
+    cache_key = f"compliance:{facility_id}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
 
-        if not facility_data:
-            return {"industry": None, "programs": [], "rcra_generator_status": None}
+    empty_result = {"industry": None, "programs": [], "rcra_generator_status": None}
 
-        facility_name = facility_data[0].get("facility_name")
-        facility_state = facility_data[0].get("state_abbr")
-        registry_id = facility_data[0].get("epa_registry_id")
-
-        dfr_data = {}
-        if registry_id:
-            dfr_url = (
-                f"https://echodata.epa.gov/echo/dfr_rest_services.get_dfr"
-                f"?output=JSON&p_id={registry_id}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            facility_url = (
+                f"https://data.epa.gov/dmapservice/tri.tri_facility"
+                f"/tri_facility_id/equals/{facility_id}/1:1/json"
             )
-            dfr_resp = await client.get(dfr_url)
-            dfr_data = dfr_resp.json().get("Results", {})
+            facility_resp = await client.get(facility_url)
+            facility_data = _safe_json(facility_resp, default=[])
 
-        rcra_generator_status = None
-        if facility_name and facility_state:
-            rcra_search_resp = await client.get(
-                "https://echodata.epa.gov/echo/rcra_rest_services.get_facilities",
-                params={"output": "JSON", "p_fn": facility_name, "p_st": facility_state},
-            )
-            rcra_query_id = rcra_search_resp.json().get("Results", {}).get("QueryID")
+            if not facility_data:
+                return empty_result
 
-            if rcra_query_id:
-                rcra_results_resp = await client.get(
-                    "https://echodata.epa.gov/echo/rcra_rest_services.get_qid",
-                    params={"output": "JSON", "qid": rcra_query_id, "pagelength": 5},
+            facility_name = facility_data[0].get("facility_name")
+            facility_state = facility_data[0].get("state_abbr")
+            registry_id = facility_data[0].get("epa_registry_id")
+
+            dfr_data = {}
+            if registry_id:
+                dfr_url = (
+                    f"https://echodata.epa.gov/echo/dfr_rest_services.get_dfr"
+                    f"?output=JSON&p_id={registry_id}"
                 )
-                rcra_rows = rcra_results_resp.json().get("Results", {}).get("Facilities") or []
-                if rcra_rows:
-                    match = rcra_rows[0]
-                    rcra_generator_status = {
-                        "generator_status": match.get("RCRAUniverse"),
-                        "active_status": match.get("RCRAStatus"),
-                        "compliance_status": match.get("RCRAComplStatus"),
-                    }
+                dfr_resp = await client.get(dfr_url)
+                dfr_data = _safe_json(dfr_resp, default={}).get("Results", {})
+
+            rcra_generator_status = None
+            if facility_name and facility_state:
+                rcra_search_resp = await client.get(
+                    "https://echodata.epa.gov/echo/rcra_rest_services.get_facilities",
+                    params={"output": "JSON", "p_fn": facility_name, "p_st": facility_state},
+                )
+                rcra_query_id = _safe_json(rcra_search_resp, default={}).get("Results", {}).get("QueryID")
+
+                if rcra_query_id:
+                    rcra_results_resp = await client.get(
+                        "https://echodata.epa.gov/echo/rcra_rest_services.get_qid",
+                        params={"output": "JSON", "qid": rcra_query_id, "pagelength": 5},
+                    )
+                    rcra_rows = _safe_json(rcra_results_resp, default={}).get("Results", {}).get("Facilities") or []
+                    if rcra_rows:
+                        match = rcra_rows[0]
+                        rcra_generator_status = {
+                            "generator_status": match.get("RCRAUniverse"),
+                            "active_status": match.get("RCRAStatus"),
+                            "compliance_status": match.get("RCRAComplStatus"),
+                        }
+    except httpx.HTTPError:
+        return empty_result
 
     enforcement_by_statute = {
         summary["Statute"]: summary
@@ -431,6 +514,22 @@ async def site_search(
     radius: float = 1.0,
     limit: int = 100,
 ):
+    # Normalize types explicitly rather than relying on the caller to match
+    # formatting exactly -- a direct Python call (e.g. from sync_md_cache.py)
+    # passing radius=1 (int) vs. a real HTTP request where FastAPI coerces
+    # the query param to float (1.0) would otherwise produce different key
+    # strings for what's supposed to be the same cache entry.
+    if address:
+        cache_key = f"site-search:addr:{address.strip().lower()}:{float(radius)}:{int(limit)}"
+    elif state:
+        cache_key = f"site-search:state:{state.upper()}:{float(radius)}:{int(limit)}"
+    else:
+        cache_key = None
+    if cache_key is not None:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
+
     facilities_by_id = {}
 
     def add_facility(

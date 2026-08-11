@@ -44,9 +44,16 @@ class GhgEmittersTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self._real_client = main.httpx.AsyncClient
         main.httpx.AsyncClient = FakeClient
+        # The demo-day response cache (md_demo_cache.db) is a real file that
+        # may exist on disk with real MD data -- without this, a cache hit
+        # would silently bypass FakeClient and return that real data instead
+        # of the fixture data these tests assert on.
+        self._real_cache_get = main._cache_get
+        main._cache_get = lambda key: None
 
     def tearDown(self):
         main.httpx.AsyncClient = self._real_client
+        main._cache_get = self._real_cache_get
 
     async def test_sums_multiple_gas_types_per_facility(self):
         result = await main.get_ghg_emitters("MD")
