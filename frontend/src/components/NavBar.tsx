@@ -2,7 +2,7 @@ import { Link, NavLink } from "react-router-dom";
 import { colors, fonts } from "../newDesign/theme";
 
 const NAV_LINKS = [
-  { to: "/search", label: "Search" },
+  { to: "/search", label: "TRI Search" },
   { to: "/hazard-watch", label: "Hazard Watch" },
   { to: "/site-search", label: "Site Search" },
   { to: "/emissions-center", label: "Emissions Center" },
