@@ -32,5 +32,9 @@ Leave both terminals open and running, logs will be present
 
 
 
+ First time ever (setup): python3 -m venv .venv → pip install -r requirements.txt → then the run commands.
+
+ Every time after that (just running it): source .venv/bin/activate → uvicorn main:app --port 8000 
+
 
 
