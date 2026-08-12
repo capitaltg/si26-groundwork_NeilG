@@ -17,15 +17,15 @@ Clone the repo to your local machine
 
 Backend Build : navigate to the directory where the code base is stored, to start the back end run these commands
 
-cd /Users/neilgomes/Desktop/Groundwork
-source .venv/bin/activate
-uvicorn main:app --port 8000
+cd /Users/neilgomes/Desktop/Groundwork -> 
+source .venv/bin/activate -> 
+uvicorn main:app --port 8000 
 
 -----------------------------------------------------------------------------------------------------------------
 
 Frontend Build : In a separate terminal within the same directory the code base is stored run these commands 
 
-cd /Users/neilgomes/Desktop/Groundwork/frontend
+cd /Users/neilgomes/Desktop/Groundwork/frontend -> 
 npm run dev
 
 Leave both terminals open and running, logs will be present
