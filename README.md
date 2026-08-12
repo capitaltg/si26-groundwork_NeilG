@@ -21,6 +21,7 @@ cd /Users/neilgomes/Desktop/Groundwork
 source .venv/bin/activate
 uvicorn main:app --port 8000
 
+-----------------------------------------------------------------------------------------------------------------
 
 Frontend Build : In a separate terminal within the same directory the code base is stored run these commands 
 
