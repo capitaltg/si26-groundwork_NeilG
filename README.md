@@ -11,7 +11,7 @@ Frontend : React + Vite
 Backend : FastAPI 
 
 
-###------- HOW to RUN LOCALLY -------
+### ------- HOW to RUN LOCALLY -------
 
 Clone the repo to your local machine 
 
